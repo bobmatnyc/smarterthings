@@ -1,6 +1,6 @@
 {
   "name": "@bobmatnyc/mcp-smartthings",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Model Context Protocol (MCP) server for SmartThings home automation",
   "type": "module",
   "main": "./dist/index.js",
