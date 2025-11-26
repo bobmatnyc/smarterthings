@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.0.3](https://github.com/bobmatnyc/mcp-smarterthings/compare/v1.0.2...v1.0.3) (2025-11-26)
+
+
+### Bug Fixes
+
+* correct .npmignore patterns to include dist/mcp subdirectories ([6a018ce](https://github.com/bobmatnyc/mcp-smarterthings/commit/6a018ce2f1b82692760bb33c597da35bc2c416b5))
+
 ### [1.0.2](https://github.com/bobmatnyc/mcp-smarterthings/compare/v1.0.1...v1.0.2) (2025-11-26)
 
 
