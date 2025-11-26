@@ -7,7 +7,7 @@
 # Source files (we publish dist/ instead)
 src/
 tests/
-tools/
+/tools/
 
 # Test and development files
 *.test.ts
@@ -31,7 +31,7 @@ docs/
 .mcp.json
 
 # Prompts directory
-prompts/
+/prompts/
 
 # Build artifacts not needed
 *.d.ts.map
