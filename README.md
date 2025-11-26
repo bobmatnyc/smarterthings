@@ -789,6 +789,30 @@ tools/
 └── test-helpers.sh              # Shell helper functions
 ```
 
+## Documentation
+
+Comprehensive documentation is available in the [docs/](docs/) directory:
+
+- **[Setup Guides](docs/setup/)** - Installation and configuration
+  - [Alexa Quick Start](docs/setup/ALEXA_CUSTOM_SKILL_QUICK_START.md)
+  - [Diagnostic Tools Setup](docs/setup/DIAGNOSTIC_TOOLS_GUIDE.md)
+  - [ngrok Configuration](docs/setup/NGROK_QUICKSTART.md)
+
+- **[Implementation Guides](docs/implementation/)** - Development documentation
+  - [Alexa Custom Skill](docs/implementation/ALEXA_CUSTOM_SKILL_IMPLEMENTATION.md)
+  - [Chatbot Interface](docs/implementation/CHATBOT_IMPLEMENTATION.md)
+  - [Diagnostic Tools](docs/implementation/DIAGNOSTIC_TOOLS_IMPLEMENTATION.md)
+
+- **[Testing Documentation](docs/testing/)** - Test guides and verification
+  - [Testing Quick Start](docs/testing/TESTING_QUICK_START.md)
+  - [Verification Checklist](docs/testing/VERIFICATION_CHECKLIST.md)
+
+- **[QA Reports](docs/qa/)** - Quality assurance documentation
+
+- **[Research](docs/research/)** - Technical research and analysis
+
+For a complete index, see [docs/README.md](docs/README.md).
+
 ## Support
 
 For issues and questions:
