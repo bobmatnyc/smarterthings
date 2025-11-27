@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build tracking script for mcp-smartthings
+# Build tracking script for mcp-smarterthings
 # Tracks build numbers, metadata, and history
 
 set -e

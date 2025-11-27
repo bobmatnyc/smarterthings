@@ -42,7 +42,7 @@
 ### Directory Structure
 
 ```
-mcp-smartthings/
+mcp-smarterthings/
 ├── src/
 │   ├── index.ts                    # Entry point
 │   ├── server.ts                   # MCP server configuration
@@ -2291,7 +2291,7 @@ pnpm -v          # ≥9.0.0
 
 # Clone and install
 git clone <repo>
-cd mcp-smartthings
+cd mcp-smarterthings
 pnpm install
 
 # Environment configuration

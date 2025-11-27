@@ -1,6 +1,6 @@
 # Release Guide
 
-This guide provides comprehensive instructions for creating releases of mcp-smartthings.
+This guide provides comprehensive instructions for creating releases of mcp-smarterthings.
 
 ## Table of Contents
 
@@ -13,7 +13,7 @@ This guide provides comprehensive instructions for creating releases of mcp-smar
 
 ## Overview
 
-The mcp-smartthings project uses:
+The mcp-smarterthings project uses:
 
 - **Semantic Versioning (semver)**: MAJOR.MINOR.PATCH
 - **Conventional Commits**: For automated changelog generation
@@ -377,7 +377,7 @@ npm whoami
 npm login
 
 # Verify package name is available
-npm view @bobmatnyc/mcp-smartthings
+npm view @bobmatnyc/mcp-smarterthings
 
 # Retry publish
 npm publish --access public
@@ -398,7 +398,7 @@ git tag -d v1.2.3
 git push origin :refs/tags/v1.2.3
 
 # Unpublish from npm (within 72 hours)
-npm unpublish @bobmatnyc/mcp-smartthings@1.2.3
+npm unpublish @bobmatnyc/mcp-smarterthings@1.2.3
 ```
 
 ### Skip Individual Steps
@@ -436,7 +436,7 @@ After creating a release:
 - [ ] Verify git tag exists
 - [ ] Verify npm package published
 - [ ] Verify GitHub release created
-- [ ] Test installation: `npm install @bobmatnyc/mcp-smartthings@latest`
+- [ ] Test installation: `npm install @bobmatnyc/mcp-smarterthings@latest`
 - [ ] Announce release (if applicable)
 
 ## Best Practices

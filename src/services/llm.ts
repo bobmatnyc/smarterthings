@@ -131,7 +131,7 @@ export class LlmService implements ILlmService {
       apiKey: config.apiKey,
       baseURL: 'https://openrouter.ai/api/v1',
       defaultHeaders: {
-        'HTTP-Referer': 'https://github.com/masa/mcp-smartthings',
+        'HTTP-Referer': 'https://github.com/masa/mcp-smarterthings',
         'X-Title': 'MCP SmartThings Chatbot',
       },
     });

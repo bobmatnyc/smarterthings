@@ -1,7 +1,7 @@
 # Version and Build Tracking Analysis - MCP SmartThings
 
 **Date:** 2025-11-25
-**Project:** mcp-smartthings
+**Project:** mcp-smarterthings
 **Researcher:** Claude Code Research Agent
 **Status:** Complete
 
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The mcp-smartthings project currently has **minimal version and build tracking infrastructure**. Version management is basic with hardcoded defaults, no automated version bumping, no git tagging strategy, and no CI/CD pipeline for release automation.
+The mcp-smarterthings project currently has **minimal version and build tracking infrastructure**. Version management is basic with hardcoded defaults, no automated version bumping, no git tagging strategy, and no CI/CD pipeline for release automation.
 
 ### Key Findings
 
@@ -90,7 +90,7 @@ tools/
 **package.json:**
 ```json
 {
-  "name": "@masa/mcp-smartthings",
+  "name": "@masa/mcp-smarterthings",
   "version": "1.0.0"
 }
 ```
@@ -378,8 +378,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SmartThings PAT authentication
 - Environment variable validation
 
-[Unreleased]: https://github.com/USER/mcp-smartthings/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/USER/mcp-smartthings/releases/tag/v1.0.0
+[Unreleased]: https://github.com/USER/mcp-smarterthings/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/USER/mcp-smarterthings/releases/tag/v1.0.0
 ```
 
 #### 5. Add Build Metadata Injection
@@ -773,7 +773,7 @@ app.get('/health', (req, res) => {
 
 ## Conclusion
 
-The mcp-smartthings project currently has **basic but insufficient** version and build tracking. While the current approach works for early development, implementing proper version management infrastructure is critical before production use or public release.
+The mcp-smarterthings project currently has **basic but insufficient** version and build tracking. While the current approach works for early development, implementing proper version management infrastructure is critical before production use or public release.
 
 **Immediate Next Steps:**
 1. Fix version duplication (read from package.json)
@@ -807,7 +807,7 @@ The mcp-smartthings project currently has **basic but insufficient** version and
 
 ### Existing Files with Version References
 ```
-/Users/masa/Projects/mcp-smartthings/
+/Users/masa/Projects/mcp-smarterthings/
 ├── package.json (version: 1.0.0)
 ├── src/
 │   ├── index.ts (logs version on startup)

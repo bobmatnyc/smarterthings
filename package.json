@@ -1,12 +1,12 @@
 {
-  "name": "@bobmatnyc/mcp-smartthings",
+  "name": "@bobmatnyc/mcp-smarterthings",
   "version": "0.6.1",
   "description": "Model Context Protocol (MCP) server for SmartThings home automation",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "mcp-smartthings": "./dist/index.js"
+    "mcp-smarterthings": "./dist/index.js"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

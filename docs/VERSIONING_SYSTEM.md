@@ -1,6 +1,6 @@
 # Versioning and Build System
 
-Complete overview of the mcp-smartthings versioning, build tracking, and release automation system.
+Complete overview of the mcp-smarterthings versioning, build tracking, and release automation system.
 
 ## System Components
 
@@ -388,7 +388,7 @@ make release-auto
 ## File Structure
 
 ```
-mcp-smartthings/
+mcp-smarterthings/
 ├── .build/                      # Build tracking (gitignored)
 │   ├── build_number             # Current build number
 │   ├── build_history.log        # Build history

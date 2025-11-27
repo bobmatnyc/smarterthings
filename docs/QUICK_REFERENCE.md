@@ -1,6 +1,6 @@
 # Quick Reference Guide
 
-Fast access to common commands and workflows for mcp-smartthings.
+Fast access to common commands and workflows for mcp-smarterthings.
 
 ## 🚀 Most Common Commands
 

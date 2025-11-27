@@ -22,7 +22,7 @@ This research analyzes the current HTTP transport implementation and provides co
 
 ### 1.1 Existing Implementation
 
-**File:** `/Users/masa/Projects/mcp-smartthings/src/transport/http.ts`
+**File:** `/Users/masa/Projects/mcp-smarterthings/src/transport/http.ts`
 
 **Current Architecture:**
 - **Framework:** Express 4.19.2 (already in dependencies)

@@ -102,7 +102,7 @@ export const diagnosticTools = {
 
 ### 1.2 Server Registration Pattern
 
-Tools are registered in `/Users/masa/Projects/mcp-smartthings/src/server.ts`:
+Tools are registered in `/Users/masa/Projects/mcp-smarterthings/src/server.ts`:
 
 ```typescript
 import {
@@ -326,7 +326,7 @@ export interface ComponentStatus {
 
 ### 3.1 New File: diagnostics.ts
 
-**Location**: `/Users/masa/Projects/mcp-smartthings/src/mcp/tools/diagnostics.ts`
+**Location**: `/Users/masa/Projects/mcp-smarterthings/src/mcp/tools/diagnostics.ts`
 
 **Rationale**:
 - Follows existing pattern (one file per functional group)
@@ -381,7 +381,7 @@ export const ERROR_CODES = {
 
 For tracking command failures and rate limits, consider adding:
 
-**Location**: `/Users/masa/Projects/mcp-smartthings/src/utils/diagnostic-tracker.ts`
+**Location**: `/Users/masa/Projects/mcp-smarterthings/src/utils/diagnostic-tracker.ts`
 
 **Purpose**:
 - In-memory storage of recent command failures
@@ -1156,7 +1156,7 @@ const deviceHealthResults = await Promise.allSettled(deviceHealthPromises);
 
 ### 6.1 Unit Tests
 
-**Test File**: `/Users/masa/Projects/mcp-smartthings/tests/unit/diagnostics.test.ts`
+**Test File**: `/Users/masa/Projects/mcp-smarterthings/tests/unit/diagnostics.test.ts`
 
 **Key Test Cases**:
 
@@ -1197,7 +1197,7 @@ const deviceHealthResults = await Promise.allSettled(deviceHealthPromises);
 
 ### 6.2 Integration Tests
 
-**Test File**: `/Users/masa/Projects/mcp-smartthings/tests/integration/diagnostics.integration.test.ts`
+**Test File**: `/Users/masa/Projects/mcp-smarterthings/tests/integration/diagnostics.integration.test.ts`
 
 **Setup**: Requires live SmartThings PAT
 
@@ -1512,20 +1512,20 @@ logger.error('Failed to retrieve health', { deviceId, error: error.message });
 ### 12.1 Codebase Files
 
 **Tool Implementation**:
-- `/Users/masa/Projects/mcp-smartthings/src/mcp/tools/system.ts` - Example simple tool
-- `/Users/masa/Projects/mcp-smartthings/src/mcp/tools/management.ts` - Example complex tool with SDK usage
-- `/Users/masa/Projects/mcp-smartthings/src/mcp/tools/device-query.ts` - Example device querying
+- `/Users/masa/Projects/mcp-smarterthings/src/mcp/tools/system.ts` - Example simple tool
+- `/Users/masa/Projects/mcp-smarterthings/src/mcp/tools/management.ts` - Example complex tool with SDK usage
+- `/Users/masa/Projects/mcp-smarterthings/src/mcp/tools/device-query.ts` - Example device querying
 
 **Core Services**:
-- `/Users/masa/Projects/mcp-smartthings/src/smartthings/client.ts` - SmartThings SDK wrapper
-- `/Users/masa/Projects/mcp-smartthings/src/utils/error-handler.ts` - Error handling utilities
-- `/Users/masa/Projects/mcp-smartthings/src/utils/validation.ts` - Zod schemas
-- `/Users/masa/Projects/mcp-smartthings/src/utils/retry.ts` - Retry logic
+- `/Users/masa/Projects/mcp-smarterthings/src/smartthings/client.ts` - SmartThings SDK wrapper
+- `/Users/masa/Projects/mcp-smarterthings/src/utils/error-handler.ts` - Error handling utilities
+- `/Users/masa/Projects/mcp-smarterthings/src/utils/validation.ts` - Zod schemas
+- `/Users/masa/Projects/mcp-smarterthings/src/utils/retry.ts` - Retry logic
 
 **Type Definitions**:
-- `/Users/masa/Projects/mcp-smartthings/src/types/smartthings.ts` - SmartThings types
-- `/Users/masa/Projects/mcp-smartthings/src/types/mcp.ts` - MCP types
-- `/Users/masa/Projects/mcp-smartthings/src/config/constants.ts` - Constants and error codes
+- `/Users/masa/Projects/mcp-smarterthings/src/types/smartthings.ts` - SmartThings types
+- `/Users/masa/Projects/mcp-smarterthings/src/types/mcp.ts` - MCP types
+- `/Users/masa/Projects/mcp-smarterthings/src/config/constants.ts` - Constants and error codes
 
 ### 12.2 External Documentation
 
@@ -1540,7 +1540,7 @@ logger.error('Failed to retrieve health', { deviceId, error: error.message });
 
 ### 12.3 Previous Research
 
-- `/Users/masa/Projects/mcp-smartthings/docs/research/mcp-smartthings-architecture-research-2025-11-25.md`
+- `/Users/masa/Projects/mcp-smarterthings/docs/research/mcp-smarterthings-architecture-research-2025-11-25.md`
 
 ---
 

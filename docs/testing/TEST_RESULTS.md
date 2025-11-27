@@ -95,7 +95,7 @@ All packages installed successfully:
 **Build Tool:** TypeScript Compiler (tsc)
 **Build Status:** ✓ Success
 
-**Build Output Directory:** `/Users/masa/Projects/mcp-smartthings/dist`
+**Build Output Directory:** `/Users/masa/Projects/mcp-smarterthings/dist`
 ```
 dist/
 ├── config/
@@ -248,7 +248,7 @@ Registered handlers for:
 
 ### Server Startup Logs (First 10 Lines)
 ```
-> @masa/mcp-smartthings@1.0.0 dev
+> @masa/mcp-smarterthings@1.0.0 dev
 > tsx watch src/index.ts
 
 2025-11-25 13:37:08 [smartthings-mcp] info: Initializing SmartThings client
@@ -327,11 +327,11 @@ The server is **ready for use** and can be integrated with MCP-compatible client
 
 ## Test Files
 
-- **Test Script:** `/Users/masa/Projects/mcp-smartthings/test-connection.ts`
-- **Environment File:** `/Users/masa/Projects/mcp-smartthings/.env`
-- **Environment Example:** `/Users/masa/Projects/mcp-smartthings/.env.example`
-- **Source Entry Point:** `/Users/masa/Projects/mcp-smartthings/src/index.ts`
-- **Build Output:** `/Users/masa/Projects/mcp-smartthings/dist/`
+- **Test Script:** `/Users/masa/Projects/mcp-smarterthings/test-connection.ts`
+- **Environment File:** `/Users/masa/Projects/mcp-smarterthings/.env`
+- **Environment Example:** `/Users/masa/Projects/mcp-smarterthings/.env.example`
+- **Source Entry Point:** `/Users/masa/Projects/mcp-smarterthings/src/index.ts`
+- **Build Output:** `/Users/masa/Projects/mcp-smarterthings/dist/`
 
 ---
 

@@ -1,6 +1,6 @@
 # Implementation Summary: Semantic Versioning and Release Automation
 
-Complete implementation of semantic versioning, build tracking, and automated release system for mcp-smartthings.
+Complete implementation of semantic versioning, build tracking, and automated release system for mcp-smarterthings.
 
 ## ✅ Implementation Status: COMPLETED
 
@@ -406,7 +406,7 @@ Triggers on version tags (e.g., `v1.2.3`):
 ## 📚 Documentation Structure
 
 ```
-mcp-smartthings/
+mcp-smarterthings/
 ├── CONTRIBUTING.md              # Contributing guidelines
 ├── CHANGELOG.md                 # Auto-generated changelog
 └── docs/

@@ -102,7 +102,7 @@ jobs:
 
       - name: Verify npm package
         run: |
-          NPM_VERSION=$(npm view @bobmatnyc/mcp-smartthings version)
+          NPM_VERSION=$(npm view @bobmatnyc/mcp-smarterthings version)
           if [ "$NPM_VERSION" != "${{ steps.version.outputs.VERSION }}" ]; then
             echo "npm package version mismatch: $NPM_VERSION != ${{ steps.version.outputs.VERSION }}"
             exit 1

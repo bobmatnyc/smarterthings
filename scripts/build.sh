@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build script for mcp-smartthings
+# Build script for mcp-smarterthings
 # Handles full production builds with pre-build validation and post-build verification
 
 set -e  # Exit on error
@@ -96,7 +96,7 @@ if [ -f "src/version.ts" ]; then
   # Create temporary version file with build info
   cat > src/version.ts << EOF
 /**
- * Version information for mcp-smartthings
+ * Version information for mcp-smarterthings
  * This file is automatically updated during the release process
  */
 

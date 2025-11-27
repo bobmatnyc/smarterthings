@@ -140,9 +140,9 @@ export async function handleToolName(input: McpToolInput): Promise<CallToolResul
 ## Test Evidence
 
 ### Files Created/Modified
-- `/Users/masa/Projects/mcp-smartthings/src/utils/diagnostic-tracker.ts` (~270 LOC)
-- `/Users/masa/Projects/mcp-smartthings/src/mcp/tools/diagnostics.ts` (~730 LOC)
-- `/Users/masa/Projects/mcp-smartthings/tests/qa/diagnostic-tools.test.ts` (21 test cases)
+- `/Users/masa/Projects/mcp-smarterthings/src/utils/diagnostic-tracker.ts` (~270 LOC)
+- `/Users/masa/Projects/mcp-smarterthings/src/mcp/tools/diagnostics.ts` (~730 LOC)
+- `/Users/masa/Projects/mcp-smarterthings/tests/qa/diagnostic-tools.test.ts` (21 test cases)
 
 ### Integration Points Verified
 - ✅ `src/smartthings/client.ts` - Command tracking
@@ -206,9 +206,9 @@ Coverage:    90.5% (19/21 tests)
 
 ## Additional Resources
 
-**Full Test Report:** `/Users/masa/Projects/mcp-smartthings/QA_REPORT_1M-214.md`
+**Full Test Report:** `/Users/masa/Projects/mcp-smarterthings/QA_REPORT_1M-214.md`
 
-**Test Suite:** `/Users/masa/Projects/mcp-smartthings/tests/qa/diagnostic-tools.test.ts`
+**Test Suite:** `/Users/masa/Projects/mcp-smarterthings/tests/qa/diagnostic-tools.test.ts`
 
 **Log Files:**
 - Build output: Clean compilation

@@ -9,9 +9,9 @@
 
 ---
 
-## 🎯 What is mcp-smartthings?
+## 🎯 What is mcp-smarterthings?
 
-**mcp-smartthings** is a comprehensive smart home integration server that bridges AI assistants and voice assistants with your home automation devices. It provides:
+**mcp-smarterthings** is a comprehensive smart home integration server that bridges AI assistants and voice assistants with your home automation devices. It provides:
 
 - 🤖 **MCP Server** for Claude AI and other LLM-based assistants
 - 🗣️ **Alexa Custom Skill** for natural language voice control
@@ -46,7 +46,7 @@
 
 ### 🔄 Unified Capability System
 
-The heart of mcp-smartthings is a **platform-agnostic capability abstraction** that normalizes device control across multiple smart home platforms:
+The heart of mcp-smarterthings is a **platform-agnostic capability abstraction** that normalizes device control across multiple smart home platforms:
 
 **Key Features:**
 - **31 Unified Capabilities** - 11 Control + 15 Sensor + 5 Composite capabilities
@@ -244,7 +244,7 @@ The server will start with the configured transport mode (stdio or http).
 
 ### Mode 1: MCP Server for Claude Desktop
 
-Configure Claude Desktop to use mcp-smartthings as an MCP server:
+Configure Claude Desktop to use mcp-smarterthings as an MCP server:
 
 **Add to your Claude Desktop config** (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
@@ -253,7 +253,7 @@ Configure Claude Desktop to use mcp-smartthings as an MCP server:
   "mcpServers": {
     "smartthings": {
       "command": "node",
-      "args": ["/absolute/path/to/mcp-smartthings/dist/index.js"],
+      "args": ["/absolute/path/to/mcp-smarterthings/dist/index.js"],
       "env": {
         "SMARTTHINGS_PAT": "your_smartthings_token_here"
       }
@@ -630,7 +630,7 @@ For a complete index, see [docs/README.md](docs/README.md).
 
 ## 🎯 Key Differentiators
 
-### What Makes mcp-smartthings Unique?
+### What Makes mcp-smarterthings Unique?
 
 1. **Dual-Mode Operation**
    - Same codebase serves both MCP protocol and Alexa Custom Skill
@@ -703,7 +703,7 @@ pnpm format:check
 ### Project Structure
 
 ```
-mcp-smartthings/
+mcp-smarterthings/
 ├── src/
 │   ├── index.ts                    # Main MCP server entry point
 │   ├── cli/
@@ -805,7 +805,7 @@ For issues and questions:
 
 1. Check the [SmartThings API Documentation](https://developer.smartthings.com/docs/api/public)
 2. Review the [MCP SDK Documentation](https://modelcontextprotocol.io/)
-3. Search existing [GitHub Issues](https://github.com/bobmatnyc/mcp-smartthings/issues)
+3. Search existing [GitHub Issues](https://github.com/bobmatnyc/mcp-smarterthings/issues)
 4. Open a new issue with detailed description and logs
 
 ---

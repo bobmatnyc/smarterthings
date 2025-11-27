@@ -502,7 +502,7 @@ Duration:    22.66s
 ### Build Output
 ```bash
 $ npm run build
-> @masa/mcp-smartthings@1.0.0 build
+> @masa/mcp-smarterthings@1.0.0 build
 > tsc
 
 ✅ Success (no output = no errors)
@@ -592,15 +592,15 @@ The implementation demonstrates:
 
 ## Appendix A: Test Files Created
 
-1. `/Users/masa/Projects/mcp-smartthings/tests/qa/diagnostic-tools.test.ts`
+1. `/Users/masa/Projects/mcp-smarterthings/tests/qa/diagnostic-tools.test.ts`
    - Comprehensive test suite for all 6 diagnostic tools
    - 21 test cases covering functional, error, and quality checks
 
-2. `/Users/masa/Projects/mcp-smartthings/tests/setup.ts` (Modified)
+2. `/Users/masa/Projects/mcp-smarterthings/tests/setup.ts` (Modified)
    - Updated to load .env for integration testing
    - Maintains compatibility with mock testing
 
-3. `/Users/masa/Projects/mcp-smartthings/test_diagnostics.sh`
+3. `/Users/masa/Projects/mcp-smarterthings/test_diagnostics.sh`
    - Shell script for automated testing via test gateway
    - Demonstrates interactive testing approach
 

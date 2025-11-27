@@ -1,6 +1,6 @@
-# Contributing to mcp-smartthings
+# Contributing to mcp-smarterthings
 
-Thank you for your interest in contributing to mcp-smartthings! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to mcp-smarterthings! This document provides guidelines and instructions for contributing to the project.
 
 ## Table of Contents
 
@@ -23,8 +23,8 @@ Thank you for your interest in contributing to mcp-smartthings! This document pr
 
 1. Fork and clone the repository:
 ```bash
-git clone https://github.com/YOUR_USERNAME/mcp-smartthings.git
-cd mcp-smartthings
+git clone https://github.com/YOUR_USERNAME/mcp-smarterthings.git
+cd mcp-smarterthings
 ```
 
 2. Install dependencies:
@@ -347,9 +347,9 @@ The project uses GitHub Actions for CI/CD:
 ## Need Help?
 
 - Check the [README.md](README.md) for project overview
-- Review existing [issues](https://github.com/bobmatnyc/mcp-smartthings/issues)
+- Review existing [issues](https://github.com/bobmatnyc/mcp-smarterthings/issues)
 - Create a new issue for bugs or feature requests
 
 ## License
 
-By contributing to mcp-smartthings, you agree that your contributions will be licensed under the MIT License.
+By contributing to mcp-smarterthings, you agree that your contributions will be licensed under the MIT License.

@@ -311,7 +311,7 @@ Create a file `~/.mcp-helpers.sh`:
 #!/bin/bash
 
 # MCP Server Configuration
-MCP_SERVER_CMD="node /Users/masa/Projects/mcp-smartthings/dist/index.js"
+MCP_SERVER_CMD="node /Users/masa/Projects/mcp-smarterthings/dist/index.js"
 
 # List all MCP tools
 mcp_list_tools() {
@@ -402,7 +402,7 @@ node dist/index.js 2>&1 | tee output.log | jq
 
 #### Test Structure
 
-Create `/Users/masa/Projects/mcp-smartthings/tests/integration/mcp-client.test.ts`:
+Create `/Users/masa/Projects/mcp-smarterthings/tests/integration/mcp-client.test.ts`:
 
 ```typescript
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -1056,7 +1056,7 @@ async def test_tool_execution():
 ### Step 1: Build the Server (1 minute)
 
 ```bash
-cd /Users/masa/Projects/mcp-smartthings
+cd /Users/masa/Projects/mcp-smarterthings
 npm run build
 ```
 
@@ -1080,7 +1080,7 @@ npx @modelcontextprotocol/inspector node dist/index.js
 cat > test-mcp.sh << 'EOF'
 #!/bin/bash
 
-SERVER="node /Users/masa/Projects/mcp-smartthings/dist/index.js"
+SERVER="node /Users/masa/Projects/mcp-smarterthings/dist/index.js"
 
 echo "Testing list_devices..."
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_devices","arguments":{}},"id":1}' | \
@@ -1209,7 +1209,7 @@ Add the following to `package.json`:
 ### 7.2 Directory Structure
 
 ```
-mcp-smartthings/
+mcp-smarterthings/
 ├── tests/
 │   ├── integration/
 │   │   ├── mcp-client.test.ts           # SDK-based tests

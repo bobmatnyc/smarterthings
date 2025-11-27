@@ -208,7 +208,7 @@ export class McpClient implements IMcpClient {
         protocolVersion: '2024-11-05',
         capabilities: {},
         clientInfo: {
-          name: 'mcp-smartthings-chatbot',
+          name: 'mcp-smarterthings-chatbot',
           version: '1.0.0',
         },
       });

@@ -9,7 +9,7 @@ Successfully configured ngrok tunnel to expose the SmartThings Alexa server publ
 ### Server Configuration
 - **Local Server**: Running on `localhost:3000`
 - **Process ID**: 12973
-- **Service**: mcp-smartthings-alexa v1.0.1
+- **Service**: mcp-smarterthings-alexa v1.0.1
 
 ### ngrok Tunnel Configuration
 - **Public URL**: `https://smarty.ngrok.app`
@@ -41,7 +41,7 @@ smarty:
 ```json
 {
   "status": "healthy",
-  "service": "mcp-smartthings-alexa",
+  "service": "mcp-smarterthings-alexa",
   "version": "1.0.1",
   "uptime": 1018.850840041,
   "timestamp": "2025-11-26T09:42:31.816Z"

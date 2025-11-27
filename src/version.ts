@@ -1,5 +1,5 @@
 /**
- * Version information for mcp-smartthings
+ * Version information for mcp-smarterthings
  * This file is automatically updated during the release process
  */
 
@@ -9,9 +9,9 @@ export const VERSION = '0.6.1';
 // Build metadata (updated by build scripts)
 export const BUILD_INFO = {
   version: VERSION,
-  buildDate: new Date().toISOString(),
-  gitCommit: process.env.GIT_COMMIT || 'unknown',
-  gitBranch: process.env.GIT_BRANCH || 'unknown',
+  buildDate: '2025-11-27T00:15:15Z',
+  gitCommit: '9e2c727cbed6c7a1599cdd2107552416e91937ff',
+  gitBranch: 'main',
 } as const;
 
 /**

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version management script for mcp-smartthings
+# Version management script for mcp-smarterthings
 # Handles semantic versioning with conventional commits integration
 
 set -e
@@ -71,7 +71,7 @@ update_version_file() {
 
   cat > src/version.ts << EOF
 /**
- * Version information for mcp-smartthings
+ * Version information for mcp-smarterthings
  * This file is automatically updated during the release process
  */
 

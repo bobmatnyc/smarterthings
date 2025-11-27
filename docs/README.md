@@ -44,7 +44,7 @@ Research documents and architectural analysis:
 
 - [Alexa HTTP Integration Research](research/alexa-http-integration-2025-11-26.md) - Alexa HTTP integration investigation
 - [Diagnostic Tools Implementation Research](research/diagnostic-tools-implementation-research-2025-11-25.md) - Diagnostic tooling research
-- [MCP SmartThings Architecture Research](research/mcp-smartthings-architecture-research-2025-11-25.md) - Core architecture analysis
+- [MCP SmartThings Architecture Research](research/mcp-smarterthings-architecture-research-2025-11-25.md) - Core architecture analysis
 - [MCP Testing Approaches](research/mcp-testing-approaches-gateway-patterns-2025-11-25.md) - Testing patterns and gateway design
 - [Version Build Tracking Analysis](research/version-build-tracking-analysis-2025-11-25.md) - Version tracking implementation research
 

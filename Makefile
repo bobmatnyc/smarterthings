@@ -18,7 +18,7 @@ DOCS_DIR := ./docs
 
 help: ## Display this help message
 	@echo ""
-	@echo "$(BLUE)mcp-smartthings - Makefile targets$(NC)"
+	@echo "$(BLUE)mcp-smarterthings - Makefile targets$(NC)"
 	@echo ""
 	@awk 'BEGIN {FS = ":.*##"; printf ""} /^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 } /^##@/ { printf "\n$(YELLOW)%s$(NC)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo ""

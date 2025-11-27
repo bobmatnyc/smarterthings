@@ -143,7 +143,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
   server.get('/health', async () => {
     return {
       status: 'healthy',
-      service: 'mcp-smartthings-alexa',
+      service: 'mcp-smarterthings-alexa',
       version: environment.MCP_SERVER_VERSION,
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
@@ -160,7 +160,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
         smartHome: 'POST /alexa-smarthome - Smart Home Skill (device control)',
         health: 'GET /health',
       },
-      documentation: 'https://github.com/bobmatnyc/mcp-smartthings',
+      documentation: 'https://github.com/bobmatnyc/mcp-smarterthings',
     };
   });
 

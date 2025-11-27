@@ -39,7 +39,7 @@ npm test
 ## Project Structure
 
 ```
-mcp-smartthings/
+mcp-smarterthings/
 ├── src/
 │   ├── index.ts                    # ✅ Server entry point
 │   ├── server.ts                   # ✅ MCP server configuration

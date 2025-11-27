@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "project_name": "mcp-smartthings",
+  "project_name": "mcp-smarterthings",
   "agents": {
     "enabled": true
   },

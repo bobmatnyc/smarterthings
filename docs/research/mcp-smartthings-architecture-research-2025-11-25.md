@@ -342,7 +342,7 @@ const deviceResponseSchema = {
 ### 4.1 Directory Layout
 
 ```
-mcp-smartthings/
+mcp-smarterthings/
 ├── src/
 │   ├── index.ts                    # Server entry point
 │   ├── server.ts                   # MCP server configuration
@@ -405,13 +405,13 @@ mcp-smartthings/
 **package.json**
 ```json
 {
-  "name": "mcp-smartthings",
+  "name": "mcp-smarterthings",
   "version": "1.0.0",
   "type": "module",
   "description": "MCP server for SmartThings home automation",
   "main": "dist/index.js",
   "bin": {
-    "mcp-smartthings": "./dist/index.js"
+    "mcp-smarterthings": "./dist/index.js"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -884,7 +884,7 @@ export const env = envSchema.parse(process.env);
   "mcpServers": {
     "smartthings": {
       "command": "node",
-      "args": ["/path/to/mcp-smartthings/dist/index.js"],
+      "args": ["/path/to/mcp-smarterthings/dist/index.js"],
       "env": {
         "SMARTTHINGS_PAT": "your_token_here",
         "LOG_LEVEL": "info"
@@ -935,7 +935,7 @@ export const logger = winston.createLogger({
 ```bash
 # Clone repository
 git clone <repo-url>
-cd mcp-smartthings
+cd mcp-smarterthings
 
 # Install dependencies
 npm install
@@ -1635,4 +1635,4 @@ This architecture positions the project for successful LLM-driven home automatio
 
 **Research Conducted By:** Claude Code Research Agent
 **Ticket Integration:** Linear Project "MCP Smartthings" (4bfcd979-73bb-4098-8d09-2e2e1b9fc69c)
-**Document Location:** `/Users/masa/Projects/mcp-smartthings/docs/research/mcp-smartthings-architecture-research-2025-11-25.md`
+**Document Location:** `/Users/masa/Projects/mcp-smarterthings/docs/research/mcp-smarterthings-architecture-research-2025-11-25.md`

@@ -28,7 +28,7 @@ This research provides a comprehensive analysis of platform-specific capabilitie
 
 ### 1.1 Existing DeviceCapability Enum
 
-**Location:** `/Users/masa/Projects/mcp-smartthings/src/types/unified-device.ts`
+**Location:** `/Users/masa/Projects/mcp-smarterthings/src/types/unified-device.ts`
 
 **Coverage:** 24 capabilities across 3 categories:
 
@@ -75,7 +75,7 @@ export enum DeviceCapability {
 
 ### 1.2 Capability Interfaces
 
-**Location:** `/Users/masa/Projects/mcp-smartthings/src/types/capabilities.ts`
+**Location:** `/Users/masa/Projects/mcp-smarterthings/src/types/capabilities.ts`
 
 **Total Lines:** 821 lines of comprehensive TypeScript interfaces
 
@@ -1095,31 +1095,31 @@ export interface ButtonEvent {
 
 ### Files to Modify
 
-1. **`/Users/masa/Projects/mcp-smartthings/src/types/unified-device.ts`**
+1. **`/Users/masa/Projects/mcp-smarterthings/src/types/unified-device.ts`**
    - Add 7 new capabilities to DeviceCapability enum
    - Update JSDoc comments
 
-2. **`/Users/masa/Projects/mcp-smartthings/src/types/capabilities.ts`**
+2. **`/Users/masa/Projects/mcp-smarterthings/src/types/capabilities.ts`**
    - Add 7 new capability interfaces
    - Add new enum types (DoorState, etc.)
    - Update UnifiedCapabilityInterface union type
    - Add platform mapping comments
 
-3. **`/Users/masa/Projects/mcp-smartthings/src/types/capability-registry.ts`** (NEW)
+3. **`/Users/masa/Projects/mcp-smarterthings/src/types/capability-registry.ts`** (NEW)
    - Create CapabilityRegistry class
    - Define PlatformCapabilityMapping interface
    - Register all platform mappings
 
-4. **`/Users/masa/Projects/mcp-smartthings/src/adapters/smartthings-adapter.ts`** (FUTURE)
+4. **`/Users/masa/Projects/mcp-smarterthings/src/adapters/smartthings-adapter.ts`** (FUTURE)
    - Implement mapPlatformCapability() using registry
    - Implement mapUnifiedCapability() using registry
    - Add capability feature flag population
 
-5. **`/Users/masa/Projects/mcp-smartthings/src/adapters/tuya-adapter.ts`** (FUTURE)
+5. **`/Users/masa/Projects/mcp-smarterthings/src/adapters/tuya-adapter.ts`** (FUTURE)
    - Implement capability mapping with value conversion
    - Register Tuya-specific mappings
 
-6. **`/Users/masa/Projects/mcp-smartthings/src/adapters/lutron-adapter.ts`** (FUTURE)
+6. **`/Users/masa/Projects/mcp-smarterthings/src/adapters/lutron-adapter.ts`** (FUTURE)
    - Implement capability mapping for limited Lutron scope
    - Handle unsupported capabilities gracefully
 

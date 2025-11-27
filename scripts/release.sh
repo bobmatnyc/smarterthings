@@ -1,5 +1,5 @@
 #!/bin/bash
-# Release automation script for mcp-smartthings
+# Release automation script for mcp-smarterthings
 # Handles complete release workflow: validation, version bump, build, tag, publish
 
 set -e
@@ -234,7 +234,7 @@ if [ "$DRY_RUN" != "true" ]; then
   # Verify npm package
   if [ "$SKIP_PUBLISH" != "true" ]; then
     sleep 5  # Give npm registry time to update
-    NPM_VERSION=$(npm view @bobmatnyc/mcp-smartthings version 2>/dev/null || echo "not found")
+    NPM_VERSION=$(npm view @bobmatnyc/mcp-smarterthings version 2>/dev/null || echo "not found")
     if [ "$NPM_VERSION" = "$NEW_VERSION" ]; then
       log_success "npm package version verified: $NPM_VERSION"
     else
@@ -265,8 +265,8 @@ else
   log_success "Release completed successfully!"
   echo ""
   echo "Next steps:"
-  echo "  1. Verify release on GitHub: https://github.com/bobmatnyc/mcp-smartthings/releases"
-  echo "  2. Verify npm package: https://www.npmjs.com/package/@bobmatnyc/mcp-smartthings"
+  echo "  1. Verify release on GitHub: https://github.com/bobmatnyc/mcp-smarterthings/releases"
+  echo "  2. Verify npm package: https://www.npmjs.com/package/@bobmatnyc/mcp-smarterthings"
   echo "  3. Update documentation if needed"
   echo "  4. Announce the release"
 fi

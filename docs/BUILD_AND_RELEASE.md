@@ -1,6 +1,6 @@
 # Build and Release System
 
-Complete guide to the mcp-smartthings build and release automation system.
+Complete guide to the mcp-smarterthings build and release automation system.
 
 ## Table of Contents
 
