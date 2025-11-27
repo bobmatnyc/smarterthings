@@ -226,8 +226,7 @@ export function isDiscoveryDirective(directive: AlexaDirective): boolean {
 export function isPowerControllerDirective(directive: AlexaDirective): boolean {
   return (
     directive.directive.header.namespace === 'Alexa.PowerController' &&
-    (directive.directive.header.name === 'TurnOn' ||
-      directive.directive.header.name === 'TurnOff')
+    (directive.directive.header.name === 'TurnOn' || directive.directive.header.name === 'TurnOff')
   );
 }
 
@@ -267,10 +266,7 @@ export const AlexaDirectives = {
 /**
  * Custom Skill request types
  */
-export type CustomSkillRequestType =
-  | 'LaunchRequest'
-  | 'IntentRequest'
-  | 'SessionEndedRequest';
+export type CustomSkillRequestType = 'LaunchRequest' | 'IntentRequest' | 'SessionEndedRequest';
 
 /**
  * Custom Skill intent slot

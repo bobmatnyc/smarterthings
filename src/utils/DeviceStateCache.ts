@@ -69,8 +69,7 @@ export class DeviceStateCache {
    * - Cache thrashing from concurrent updates
    * - Wasted network resources
    */
-  private inFlightRequests: Map<UniversalDeviceId, Promise<DeviceState>> =
-    new Map();
+  private inFlightRequests: Map<UniversalDeviceId, Promise<DeviceState>> = new Map();
 
   /** Cache access order for LRU eviction */
   private accessOrder: UniversalDeviceId[] = [];
@@ -98,7 +97,9 @@ export class DeviceStateCache {
    * @param config Cache configuration (optional)
    */
   constructor(
-    private adapter: { refreshDeviceState: (deviceId: string) => Promise<DeviceState> } & EventEmitter,
+    private adapter: {
+      refreshDeviceState: (deviceId: string) => Promise<DeviceState>;
+    } & EventEmitter,
     config?: Partial<StateCacheConfig>
   ) {
     // Apply defaults
@@ -207,10 +208,7 @@ export class DeviceStateCache {
     };
 
     // Check if we need to evict (LRU)
-    if (
-      !this.cache.has(deviceId) &&
-      this.cache.size >= this.config.maxSize
-    ) {
+    if (!this.cache.has(deviceId) && this.cache.size >= this.config.maxSize) {
       this.evictOldest();
     }
 

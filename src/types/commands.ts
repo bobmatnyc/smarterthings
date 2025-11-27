@@ -331,9 +331,7 @@ export interface CommandValidationResult {
  * All required fields from CommandExecutionOptions with defaults applied,
  * except signal which remains optional.
  */
-export type ResolvedCommandExecutionOptions = Required<
-  Omit<CommandExecutionOptions, 'signal'>
-> & {
+export type ResolvedCommandExecutionOptions = Required<Omit<CommandExecutionOptions, 'signal'>> & {
   signal?: AbortSignal;
 };
 

@@ -68,7 +68,9 @@ function getCurrentTimestamp(): string {
  * @param devices Array of SmartThings devices
  * @returns Alexa discovery response
  */
-export function buildDiscoveryResponse(devices: DeviceInfo[]): AlexaResponse<DiscoveryResponsePayload> {
+export function buildDiscoveryResponse(
+  devices: DeviceInfo[]
+): AlexaResponse<DiscoveryResponsePayload> {
   logger.debug('Building discovery response', { deviceCount: devices.length });
 
   // Map SmartThings devices to Alexa endpoints
@@ -156,10 +158,7 @@ function mapDeviceToEndpoint(device: DeviceInfo): AlexaDiscoveryEndpoint {
     labelLower.includes('plug')
   ) {
     displayCategories.push('SMARTPLUG');
-  } else if (
-    nameLower.includes('switch') ||
-    labelLower.includes('switch')
-  ) {
+  } else if (nameLower.includes('switch') || labelLower.includes('switch')) {
     displayCategories.push('SWITCH');
   } else {
     displayCategories.push('OTHER');
@@ -272,8 +271,7 @@ export function buildErrorResponse(
   const errorMessage = error instanceof Error ? error.message : error;
 
   // Infer error type from message if not provided
-  const type: AlexaErrorType =
-    errorType || inferErrorType(errorMessage);
+  const type: AlexaErrorType = errorType || inferErrorType(errorMessage);
 
   const payload: ErrorResponsePayload = {
     type,
@@ -341,17 +339,11 @@ function inferErrorType(message: string): AlexaErrorType {
     return 'INVALID_DIRECTIVE';
   }
 
-  if (
-    lowerMessage.includes('validation') ||
-    lowerMessage.includes('invalid')
-  ) {
+  if (lowerMessage.includes('validation') || lowerMessage.includes('invalid')) {
     return 'INVALID_VALUE';
   }
 
-  if (
-    lowerMessage.includes('rate limit') ||
-    lowerMessage.includes('too many')
-  ) {
+  if (lowerMessage.includes('rate limit') || lowerMessage.includes('too many')) {
     return 'RATE_LIMIT_EXCEEDED';
   }
 

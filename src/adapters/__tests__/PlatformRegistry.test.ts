@@ -17,11 +17,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EventEmitter } from 'events';
 import { PlatformRegistry } from '../PlatformRegistry.js';
 import type { IDeviceAdapter } from '../base/IDeviceAdapter.js';
-import {
-  Platform,
-  DeviceCapability,
-  createUniversalDeviceId,
-} from '../../types/unified-device.js';
+import { Platform, DeviceCapability, createUniversalDeviceId } from '../../types/unified-device.js';
 import type { UniversalDeviceId, UnifiedDevice } from '../../types/unified-device.js';
 import type { DeviceCommand, CommandResult } from '../../types/commands.js';
 import type { DeviceState } from '../../types/device-state.js';
@@ -30,11 +26,14 @@ import { ConfigurationError, DeviceNotFoundError } from '../../types/errors.js';
 /**
  * Create a mock adapter for testing.
  */
-function createMockAdapter(platform: Platform, options?: {
-  shouldFailInitialize?: boolean;
-  shouldFailHealthCheck?: boolean;
-  shouldFailListDevices?: boolean;
-}): IDeviceAdapter {
+function createMockAdapter(
+  platform: Platform,
+  options?: {
+    shouldFailInitialize?: boolean;
+    shouldFailHealthCheck?: boolean;
+    shouldFailListDevices?: boolean;
+  }
+): IDeviceAdapter {
   const adapter = new EventEmitter() as unknown as IDeviceAdapter;
 
   // Metadata (use Object.defineProperty to set readonly properties)
@@ -186,22 +185,22 @@ describe('PlatformRegistry', () => {
     it('should validate adapter interface', async () => {
       const invalidAdapter = { platform: Platform.SMARTTHINGS } as IDeviceAdapter;
 
-      await expect(
-        registry.registerAdapter(Platform.SMARTTHINGS, invalidAdapter)
-      ).rejects.toThrow(ConfigurationError);
-      await expect(
-        registry.registerAdapter(Platform.SMARTTHINGS, invalidAdapter)
-      ).rejects.toThrow('Invalid adapter');
+      await expect(registry.registerAdapter(Platform.SMARTTHINGS, invalidAdapter)).rejects.toThrow(
+        ConfigurationError
+      );
+      await expect(registry.registerAdapter(Platform.SMARTTHINGS, invalidAdapter)).rejects.toThrow(
+        'Invalid adapter'
+      );
     });
 
     it('should validate platform matches adapter', async () => {
       // Try to register Tuya adapter as SmartThings
-      await expect(
-        registry.registerAdapter(Platform.SMARTTHINGS, mockTuyaAdapter)
-      ).rejects.toThrow(ConfigurationError);
-      await expect(
-        registry.registerAdapter(Platform.SMARTTHINGS, mockTuyaAdapter)
-      ).rejects.toThrow('platform mismatch');
+      await expect(registry.registerAdapter(Platform.SMARTTHINGS, mockTuyaAdapter)).rejects.toThrow(
+        ConfigurationError
+      );
+      await expect(registry.registerAdapter(Platform.SMARTTHINGS, mockTuyaAdapter)).rejects.toThrow(
+        'platform mismatch'
+      );
     });
 
     it('should emit adapterRegistered event', async () => {
@@ -226,9 +225,9 @@ describe('PlatformRegistry', () => {
         shouldFailInitialize: true,
       });
 
-      await expect(
-        registry.registerAdapter(Platform.SMARTTHINGS, failingAdapter)
-      ).rejects.toThrow('Initialization failed');
+      await expect(registry.registerAdapter(Platform.SMARTTHINGS, failingAdapter)).rejects.toThrow(
+        'Initialization failed'
+      );
 
       expect(registry.hasAdapter(Platform.SMARTTHINGS)).toBe(false);
     });
@@ -269,12 +268,12 @@ describe('PlatformRegistry', () => {
     });
 
     it('should throw when unregistering non-existent adapter', async () => {
-      await expect(
-        registry.unregisterAdapter(Platform.SMARTTHINGS)
-      ).rejects.toThrow(DeviceNotFoundError);
-      await expect(
-        registry.unregisterAdapter(Platform.SMARTTHINGS)
-      ).rejects.toThrow('not registered');
+      await expect(registry.unregisterAdapter(Platform.SMARTTHINGS)).rejects.toThrow(
+        DeviceNotFoundError
+      );
+      await expect(registry.unregisterAdapter(Platform.SMARTTHINGS)).rejects.toThrow(
+        'not registered'
+      );
     });
   });
 
@@ -347,9 +346,7 @@ describe('PlatformRegistry', () => {
     it('should throw on unknown platform', () => {
       const deviceId = createUniversalDeviceId(Platform.LUTRON, 'zone-1');
 
-      expect(() => registry.getAdapterForDevice(deviceId)).toThrow(
-        DeviceNotFoundError
-      );
+      expect(() => registry.getAdapterForDevice(deviceId)).toThrow(DeviceNotFoundError);
       expect(() => registry.getAdapterForDevice(deviceId)).toThrow(
         /No adapter registered|Device not found/
       );
@@ -371,9 +368,7 @@ describe('PlatformRegistry', () => {
       await registry.unregisterAdapter(Platform.SMARTTHINGS);
 
       // Should throw because platform no longer registered
-      expect(() => registry.getAdapterForDevice(deviceId)).toThrow(
-        DeviceNotFoundError
-      );
+      expect(() => registry.getAdapterForDevice(deviceId)).toThrow(DeviceNotFoundError);
     });
   });
 
@@ -460,11 +455,7 @@ describe('PlatformRegistry', () => {
       const result = await registry.executeCommand(deviceId, command);
 
       expect(result.success).toBe(true);
-      expect(mockTuyaAdapter.executeCommand).toHaveBeenCalledWith(
-        deviceId,
-        command,
-        undefined
-      );
+      expect(mockTuyaAdapter.executeCommand).toHaveBeenCalledWith(deviceId, command, undefined);
       expect(mockSmartThingsAdapter.executeCommand).not.toHaveBeenCalled();
     });
 
@@ -513,9 +504,9 @@ describe('PlatformRegistry', () => {
       await registry.registerAdapter(Platform.SMARTTHINGS, mockSmartThingsAdapter);
 
       // Registration should fail due to initialization error
-      await expect(
-        registry.registerAdapter(Platform.LUTRON, failingAdapter)
-      ).rejects.toThrow('Initialization failed');
+      await expect(registry.registerAdapter(Platform.LUTRON, failingAdapter)).rejects.toThrow(
+        'Initialization failed'
+      );
     });
 
     it('should clear cache on disposeAll', async () => {
@@ -718,8 +709,8 @@ describe('PlatformRegistry', () => {
       const results = await Promise.allSettled([promise1, promise2]);
 
       // At least one should succeed
-      const successes = results.filter(r => r.status === 'fulfilled');
-      const failures = results.filter(r => r.status === 'rejected');
+      const successes = results.filter((r) => r.status === 'fulfilled');
+      const failures = results.filter((r) => r.status === 'rejected');
 
       expect(successes.length).toBeGreaterThanOrEqual(1);
 
@@ -731,7 +722,7 @@ describe('PlatformRegistry', () => {
 
       // Register the second one if it failed
       if (failures.length > 0) {
-        await new Promise(resolve => setTimeout(resolve, 10)); // Wait for first to complete
+        await new Promise((resolve) => setTimeout(resolve, 10)); // Wait for first to complete
         if (!registry.hasAdapter(Platform.TUYA)) {
           await registry.registerAdapter(Platform.TUYA, adapter2);
         }
@@ -800,9 +791,7 @@ describe('PlatformRegistry', () => {
       await registryFailFast.registerAdapter(Platform.LUTRON, failingAdapter);
 
       // Should throw on first failure
-      await expect(registryFailFast.listAllDevices()).rejects.toThrow(
-        'Failed to list devices'
-      );
+      await expect(registryFailFast.listAllDevices()).rejects.toThrow('Failed to list devices');
     });
   });
 });

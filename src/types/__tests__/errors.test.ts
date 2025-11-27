@@ -320,9 +320,7 @@ describe('Error Hierarchy', () => {
     });
 
     it('should build context with platform error code', () => {
-      const context = new ErrorContextBuilder()
-        .withPlatformErrorCode('TIMEOUT')
-        .build();
+      const context = new ErrorContextBuilder().withPlatformErrorCode('TIMEOUT').build();
 
       expect(context['platformErrorCode']).toBe('TIMEOUT');
     });

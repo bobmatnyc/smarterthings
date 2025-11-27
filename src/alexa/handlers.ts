@@ -59,9 +59,7 @@ import logger from '../utils/logger.js';
  * @param directive Alexa directive from request
  * @returns Alexa response (success or error)
  */
-export async function handleAlexaDirective(
-  directive: AlexaDirective
-): Promise<AlexaResponse> {
+export async function handleAlexaDirective(directive: AlexaDirective): Promise<AlexaResponse> {
   const { namespace, name } = directive.directive.header;
 
   logger.info('Processing Alexa directive', {
@@ -92,10 +90,7 @@ export async function handleAlexaDirective(
     });
 
     // Build error response
-    return buildErrorResponse(
-      directive,
-      error instanceof Error ? error : new Error(String(error))
-    );
+    return buildErrorResponse(directive, error instanceof Error ? error : new Error(String(error)));
   }
 }
 
@@ -212,7 +207,7 @@ async function handlePowerController(
     // Check for MCP errors
     if ('isError' in mcpResult && mcpResult.isError) {
       const errorMessage =
-        (mcpResult.content?.[0] && 'text' in mcpResult.content[0])
+        mcpResult.content?.[0] && 'text' in mcpResult.content[0]
           ? mcpResult.content[0].text
           : 'Unknown MCP error';
       throw new Error(errorMessage);
@@ -242,4 +237,3 @@ async function handlePowerController(
     throw error;
   }
 }
-

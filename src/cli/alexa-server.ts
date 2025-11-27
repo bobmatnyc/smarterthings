@@ -72,7 +72,11 @@ function displayBanner(): void {
   const host = process.env['ALEXA_SERVER_HOST'] || '0.0.0.0';
 
   console.log(chalk.cyan('\n╔════════════════════════════════════════════════════════╗'));
-  console.log(chalk.cyan('║') + chalk.bold.white('  MCP SmartThings - Alexa Smart Home Server        ') + chalk.cyan('║'));
+  console.log(
+    chalk.cyan('║') +
+      chalk.bold.white('  MCP SmartThings - Alexa Smart Home Server        ') +
+      chalk.cyan('║')
+  );
   console.log(chalk.cyan('╚════════════════════════════════════════════════════════╝\n'));
 
   console.log(chalk.gray('Server configuration:'));
@@ -110,7 +114,6 @@ async function main(): Promise<void> {
     console.log(chalk.green.bold('✓ Server started successfully!\n'));
     console.log(chalk.gray('Ready to receive Alexa directives'));
     console.log(chalk.gray('Press Ctrl+C to stop\n'));
-
   } catch (error) {
     logger.error('Failed to start Alexa server', {
       error: error instanceof Error ? error.message : String(error),

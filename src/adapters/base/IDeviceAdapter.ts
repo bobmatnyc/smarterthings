@@ -590,10 +590,7 @@ export interface IDeviceAdapter extends EventEmitter {
    *
    * @event deviceOnlineChange
    */
-  on(
-    event: 'deviceOnlineChange',
-    listener: (data: DeviceOnlineChangeEvent) => void
-  ): this;
+  on(event: 'deviceOnlineChange', listener: (data: DeviceOnlineChangeEvent) => void): this;
 
   /**
    * Event: Adapter error occurred.

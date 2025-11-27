@@ -36,15 +36,8 @@ import type {
   DeviceAddedEvent as AdapterDeviceAddedEvent,
   DeviceRemovedEvent as AdapterDeviceRemovedEvent,
 } from './base/IDeviceAdapter.js';
-import type {
-  Platform,
-  UniversalDeviceId,
-  UnifiedDevice,
-} from '../types/unified-device.js';
-import {
-  parseUniversalDeviceId,
-  isUniversalDeviceId,
-} from '../types/unified-device.js';
+import type { Platform, UniversalDeviceId, UnifiedDevice } from '../types/unified-device.js';
+import { parseUniversalDeviceId, isUniversalDeviceId } from '../types/unified-device.js';
 import type { DeviceCommand, CommandResult, CommandExecutionOptions } from '../types/commands.js';
 import type { DeviceState } from '../types/device-state.js';
 import type {
@@ -55,10 +48,7 @@ import type {
   AdapterUnregisteredEvent,
   RegistryErrorEvent,
 } from '../types/registry.js';
-import {
-  DeviceNotFoundError,
-  ConfigurationError,
-} from '../types/errors.js';
+import { DeviceNotFoundError, ConfigurationError } from '../types/errors.js';
 
 /**
  * Platform Registry implementation.
@@ -163,10 +153,9 @@ export class PlatformRegistry extends EventEmitter {
   async registerAdapter(platform: Platform, adapter: IDeviceAdapter): Promise<void> {
     // Serialize registration
     if (this.registrationInProgress) {
-      throw new ConfigurationError(
-        'Another adapter registration is in progress. Please wait.',
-        { platform }
-      );
+      throw new ConfigurationError('Another adapter registration is in progress. Please wait.', {
+        platform,
+      });
     }
 
     this.registrationInProgress = true;
@@ -174,18 +163,17 @@ export class PlatformRegistry extends EventEmitter {
     try {
       // Validate not already registered
       if (this.adapters.has(platform)) {
-        throw new ConfigurationError(
-          `Adapter for platform ${platform} is already registered`,
-          { platform }
-        );
+        throw new ConfigurationError(`Adapter for platform ${platform} is already registered`, {
+          platform,
+        });
       }
 
       // Validate adapter implements required interface
       if (!this.isValidAdapter(adapter)) {
-        throw new ConfigurationError(
-          `Invalid adapter: must implement IDeviceAdapter interface`,
-          { platform, adapterType: typeof adapter }
-        );
+        throw new ConfigurationError(`Invalid adapter: must implement IDeviceAdapter interface`, {
+          platform,
+          adapterType: typeof adapter,
+        });
       }
 
       // Validate adapter platform matches
@@ -235,10 +223,9 @@ export class PlatformRegistry extends EventEmitter {
   async unregisterAdapter(platform: Platform, reason?: string): Promise<void> {
     // Serialize unregistration
     if (this.registrationInProgress) {
-      throw new ConfigurationError(
-        'Another adapter operation is in progress. Please wait.',
-        { platform }
-      );
+      throw new ConfigurationError('Another adapter operation is in progress. Please wait.', {
+        platform,
+      });
     }
 
     this.registrationInProgress = true;
@@ -507,22 +494,20 @@ export class PlatformRegistry extends EventEmitter {
   async initializeAll(): Promise<void> {
     const errors: Array<{ platform: Platform; error: Error }> = [];
 
-    const promises = Array.from(this.adapters.entries()).map(
-      async ([platform, adapter]) => {
-        try {
-          if (!adapter.isInitialized()) {
-            await adapter.initialize();
-          }
-        } catch (error) {
-          errors.push({ platform, error: error as Error });
-          this.emitError(error as Error, 'initialize', platform);
+    const promises = Array.from(this.adapters.entries()).map(async ([platform, adapter]) => {
+      try {
+        if (!adapter.isInitialized()) {
+          await adapter.initialize();
+        }
+      } catch (error) {
+        errors.push({ platform, error: error as Error });
+        this.emitError(error as Error, 'initialize', platform);
 
-          if (!this.config.gracefulDegradation) {
-            throw error;
-          }
+        if (!this.config.gracefulDegradation) {
+          throw error;
         }
       }
-    );
+    });
 
     await Promise.all(promises);
 
@@ -597,9 +582,7 @@ export class PlatformRegistry extends EventEmitter {
     }
 
     // Calculate aggregate health
-    const healthyCount = Array.from(adapterHealth.values()).filter(
-      (h) => h.healthy
-    ).length;
+    const healthyCount = Array.from(adapterHealth.values()).filter((h) => h.healthy).length;
     const totalCount = adapterHealth.size;
 
     return {
@@ -652,8 +635,7 @@ export class PlatformRegistry extends EventEmitter {
 
     return required.every(
       (method) =>
-        method in adapter &&
-        typeof (adapter as Record<string, unknown>)[method] === 'function'
+        method in adapter && typeof (adapter as Record<string, unknown>)[method] === 'function'
     );
   }
 
@@ -692,7 +674,7 @@ export class PlatformRegistry extends EventEmitter {
     adapter.on('deviceRemoved', (event: AdapterDeviceRemovedEvent) => {
       // Clear from cache
       if (this.config.enableCaching && isUniversalDeviceId(event.deviceId)) {
-        this.devicePlatformCache.delete(event.deviceId as UniversalDeviceId);
+        this.devicePlatformCache.delete(event.deviceId);
       }
 
       // Propagate to registry listeners

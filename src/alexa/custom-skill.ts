@@ -33,11 +33,7 @@
  * - Session errors: Log and continue with best effort
  */
 
-import type {
-  CustomSkillRequest,
-  CustomSkillResponse,
-  CustomSkillRequestType,
-} from './types.js';
+import type { CustomSkillRequest, CustomSkillResponse, CustomSkillRequestType } from './types.js';
 import { ChatOrchestrator } from '../services/chat-orchestrator.js';
 import { McpClient } from '../mcp/client.js';
 import { LlmService } from '../services/llm.js';
@@ -62,18 +58,21 @@ const SESSION_TIMEOUT = 30 * 60 * 1000;
 /**
  * Cleanup expired sessions periodically
  */
-setInterval(() => {
-  const now = Date.now();
-  for (const [sessionId, session] of sessionStore.entries()) {
-    if (now - session.lastActivity > SESSION_TIMEOUT) {
-      logger.info('Cleaning up expired session', { sessionId });
-      session.orchestrator.close().catch((err) => {
-        logger.error('Error closing orchestrator', { sessionId, error: err });
-      });
-      sessionStore.delete(sessionId);
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [sessionId, session] of sessionStore.entries()) {
+      if (now - session.lastActivity > SESSION_TIMEOUT) {
+        logger.info('Cleaning up expired session', { sessionId });
+        session.orchestrator.close().catch((err) => {
+          logger.error('Error closing orchestrator', { sessionId, error: err });
+        });
+        sessionStore.delete(sessionId);
+      }
     }
-  }
-}, 5 * 60 * 1000); // Check every 5 minutes
+  },
+  5 * 60 * 1000
+); // Check every 5 minutes
 
 /**
  * Get or create session orchestrator
@@ -156,10 +155,7 @@ async function processQuery(query: string, sessionId: string): Promise<string> {
  * @param shouldEndSession Whether to end session after response
  * @returns Custom Skill response
  */
-function buildSpeechResponse(
-  text: string,
-  shouldEndSession: boolean = true
-): CustomSkillResponse {
+function buildSpeechResponse(text: string, shouldEndSession: boolean = true): CustomSkillResponse {
   return {
     version: '1.0',
     response: {

@@ -312,11 +312,7 @@ export class RateLimitError extends DeviceError {
    */
   public readonly retryAfter?: number;
 
-  constructor(
-    message: string,
-    retryAfter?: number,
-    context?: Record<string, unknown>
-  ) {
+  constructor(message: string, retryAfter?: number, context?: Record<string, unknown>) {
     super(message, 'RATE_LIMIT_ERROR', { retryAfter, ...context });
     this.retryAfter = retryAfter;
   }
@@ -378,15 +374,9 @@ export class CommandExecutionError extends DeviceError {
     const platformCode = this.context?.['platformErrorCode'];
 
     // Some platform errors are retryable
-    const retryableCodes = [
-      'TEMPORARY_ERROR',
-      'BUSY',
-      'RESOURCE_TEMPORARILY_UNAVAILABLE',
-    ];
+    const retryableCodes = ['TEMPORARY_ERROR', 'BUSY', 'RESOURCE_TEMPORARILY_UNAVAILABLE'];
 
-    return (
-      typeof platformCode === 'string' && retryableCodes.includes(platformCode)
-    );
+    return typeof platformCode === 'string' && retryableCodes.includes(platformCode);
   }
 
   protected determineSeverity(): ErrorSeverity {
@@ -406,16 +396,12 @@ export class CommandExecutionError extends DeviceError {
  * Severity: Low - Expected limitation
  */
 export class NotSupportedError extends DeviceError {
-  constructor(
-    feature: string,
-    platform: string,
-    context?: Record<string, unknown>
-  ) {
-    super(
-      `Feature '${feature}' not supported by ${platform} adapter`,
-      'NOT_SUPPORTED',
-      { feature, platform, ...context }
-    );
+  constructor(feature: string, platform: string, context?: Record<string, unknown>) {
+    super(`Feature '${feature}' not supported by ${platform} adapter`, 'NOT_SUPPORTED', {
+      feature,
+      platform,
+      ...context,
+    });
   }
 
   protected determineRetryable(): boolean {

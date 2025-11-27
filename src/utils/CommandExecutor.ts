@@ -188,12 +188,7 @@ export class CommandExecutor {
         context.retryAttempt = attempt - 1;
 
         // Execute command with timeout
-        const result = await this.executeWithTimeout(
-          deviceId,
-          command,
-          opts,
-          context
-        );
+        const result = await this.executeWithTimeout(deviceId, command, opts, context);
 
         // Success! Update metrics
         const duration = Date.now() - startTime;
@@ -351,10 +346,7 @@ export class CommandExecutor {
    * @param deviceId Device ID for error context
    * @returns Promise that rejects after timeout
    */
-  private createTimeoutPromise(
-    timeout: number,
-    deviceId: string
-  ): Promise<never> {
+  private createTimeoutPromise(timeout: number, deviceId: string): Promise<never> {
     return new Promise((_, reject) => {
       setTimeout(() => {
         reject(
@@ -481,10 +473,7 @@ export class CommandExecutor {
 
     // Apply total timeout if specified
     if (options.timeout) {
-      return Promise.race([
-        Promise.all(promises),
-        this.createBatchTimeoutPromise(options.timeout),
-      ]);
+      return Promise.race([Promise.all(promises), this.createBatchTimeoutPromise(options.timeout)]);
     }
 
     return Promise.all(promises);
@@ -563,11 +552,7 @@ export class CommandExecutor {
    * @param duration Execution duration in milliseconds
    * @param retries Number of retries performed
    */
-  private updateMetrics(
-    success: boolean,
-    duration: number,
-    retries: number
-  ): void {
+  private updateMetrics(success: boolean, duration: number, retries: number): void {
     this.metrics.totalCommands++;
 
     if (success) {
@@ -593,9 +578,7 @@ export class CommandExecutor {
     }
 
     this.metrics.averageRetries =
-      this.metrics.totalCommands > 0
-        ? this.metrics.totalRetries / this.metrics.totalCommands
-        : 0;
+      this.metrics.totalCommands > 0 ? this.metrics.totalRetries / this.metrics.totalCommands : 0;
   }
 
   /**

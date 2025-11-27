@@ -403,10 +403,7 @@ export interface StateFilterOptions {
  * }
  * ```
  */
-export function compareStates(
-  oldState: DeviceState,
-  newState: DeviceState
-): StateComparisonResult {
+export function compareStates(oldState: DeviceState, newState: DeviceState): StateComparisonResult {
   const changedAttributes: Record<string, { old: unknown; new: unknown }> = {};
   const addedAttributes: string[] = [];
   const removedAttributes: string[] = [];
@@ -456,10 +453,7 @@ export function compareStates(
  * });
  * ```
  */
-export function filterState(
-  state: DeviceState,
-  options: StateFilterOptions
-): DeviceState {
+export function filterState(state: DeviceState, options: StateFilterOptions): DeviceState {
   const filteredAttributes: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(state.attributes)) {
