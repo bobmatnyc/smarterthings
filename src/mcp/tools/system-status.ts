@@ -221,10 +221,8 @@ async function getDeviceSummary(
   }
 
   // Count online/offline
-  const online = filteredDevices.filter((d) => {
-    // Heuristic: device is online if it has recent status
-    return true; // SmartThings doesn't expose online status directly
-  }).length;
+  // Note: SmartThings doesn't expose online status directly
+  const online = filteredDevices.length; // Assume all listed devices are online
   const offline = 0; // Cannot determine offline status from API
 
   // Group by room
@@ -281,6 +279,7 @@ async function getConnectivityIssues(
       try {
         // Get recent events (last 24 hours)
         const eventResult = await deviceService.getDeviceEvents(deviceId, {
+          deviceId,
           startTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
           endTime: new Date(),
           limit: 100,
@@ -300,7 +299,9 @@ async function getConnectivityIssues(
           gapDuration: pattern.description,
           severity: pattern.severity,
           lastSeen:
-            eventResult.events.length > 0 ? eventResult.events[0]!.time.toISOString() : undefined,
+            eventResult.events.length > 0
+              ? new Date(eventResult.events[0]!.time).toISOString()
+              : undefined,
         }));
       } catch (error) {
         logger.warn('Failed to analyze connectivity for device', {
@@ -439,6 +440,7 @@ async function getAutomationIssues(
     deviceSample.map(async ({ deviceId, name }) => {
       try {
         const eventResult = await deviceService.getDeviceEvents(deviceId, {
+          deviceId,
           startTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
           endTime: new Date(),
           limit: 100,
@@ -503,6 +505,7 @@ async function getAggregatedAnomalies(
     deviceSample.map(async ({ deviceId, name }) => {
       try {
         const eventResult = await deviceService.getDeviceEvents(deviceId, {
+          deviceId,
           startTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
           endTime: new Date(),
           limit: 100,
@@ -553,6 +556,9 @@ async function getAggregatedAnomalies(
 /**
  * Get semantic index health status.
  *
+ * Note: SemanticIndex not exposed through ServiceContainer yet.
+ * Placeholder implementation returns unavailable status.
+ *
  * Time Complexity: O(1)
  * Performance Target: <5ms
  *
@@ -560,14 +566,13 @@ async function getAggregatedAnomalies(
  */
 async function getIndexHealth(): Promise<IndexHealth> {
   try {
-    const semanticIndex = serviceContainer.getSemanticIndex();
-    const stats = await semanticIndex.getStats();
-
+    // TODO: Add SemanticIndex to ServiceContainer
+    // For now, return unavailable status
     return {
-      available: true,
-      totalDevices: stats.totalDevices,
-      lastSync: stats.lastSync,
-      healthy: stats.healthy,
+      available: false,
+      totalDevices: 0,
+      healthy: false,
+      error: 'SemanticIndex not integrated with ServiceContainer',
     };
   } catch (error) {
     logger.warn('Failed to get semantic index health', {
@@ -750,20 +755,32 @@ export async function handleGetSystemStatus(input: McpToolInput): Promise<CallTo
     const deviceSummary = await getDeviceSummary(scope, capability);
 
     // Get device sample for pattern analysis (limit to 10-20 devices)
-    const registry = serviceContainer.getDeviceRegistry();
-    let devices = scope === 'all' ? registry.getAllDevices() : registry.getDevicesInRoom(scope);
+    const deviceService = serviceContainer.getDeviceService();
+    const locationService = serviceContainer.getLocationService();
+
+    // Get devices
+    let devices = await deviceService.listDevices();
 
     // Apply capability filter
     if (capability) {
-      devices = devices.filter((d) => d.capabilities.includes(capability as DeviceCapability));
+      devices = devices.filter((d) => d.capabilities?.includes(capability));
+    }
+
+    // Apply room filter
+    if (scope && scope !== 'all') {
+      const rooms = await locationService.listRooms();
+      const targetRoom = rooms.find((r) => r.name === scope);
+      if (targetRoom) {
+        devices = devices.filter((d) => d.roomId === targetRoom.roomId);
+      }
     }
 
     // Sample devices for pattern analysis (max 15 for performance)
     const sampleSize = Math.min(devices.length, 15);
     const deviceSample = devices.slice(0, sampleSize).map((d) => ({
-      deviceId: d.id,
+      deviceId: d.deviceId,
       name: d.name,
-      capabilities: d.capabilities,
+      capabilities: (d.capabilities || []) as DeviceCapability[],
     }));
 
     // 2. Parallel data aggregation (if patterns enabled)
@@ -774,21 +791,19 @@ export async function handleGetSystemStatus(input: McpToolInput): Promise<CallTo
     let patternsAnalyzed = 0;
 
     if (includePatterns && deviceSample.length > 0) {
-      const [connectivity, battery, automation, anomalies, indexHealthResult] =
-        await Promise.allSettled([
-          getConnectivityIssues(deviceSample, severity),
-          getBatteryAlerts(deviceSample, severity),
-          getAutomationIssues(deviceSample, severity),
-          getAggregatedAnomalies(deviceSample, severity),
-          getIndexHealth(),
-        ]);
+      const results = await Promise.allSettled([
+        getConnectivityIssues(deviceSample, severity),
+        getBatteryAlerts(deviceSample, severity),
+        getAutomationIssues(deviceSample, severity),
+        getAggregatedAnomalies(deviceSample, severity),
+      ]);
 
       // Collect results (graceful degradation)
-      if (connectivity.status === 'fulfilled') connectivityIssues = connectivity.value;
-      if (battery.status === 'fulfilled') batteryAlerts = battery.value;
-      if (automation.status === 'fulfilled') automationIssues = automation.value;
-      if (anomalies.status === 'fulfilled') {
-        aggregatedAnomalies = anomalies.value;
+      if (results[0]?.status === 'fulfilled') connectivityIssues = results[0].value;
+      if (results[1]?.status === 'fulfilled') batteryAlerts = results[1].value;
+      if (results[2]?.status === 'fulfilled') automationIssues = results[2].value;
+      if (results[3]?.status === 'fulfilled') {
+        aggregatedAnomalies = results[3].value;
         patternsAnalyzed = aggregatedAnomalies.length;
       }
     }
