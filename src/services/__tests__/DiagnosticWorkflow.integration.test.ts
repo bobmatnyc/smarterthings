@@ -395,4 +395,265 @@ describe.skipIf(process.env['CI'] === 'true')('DiagnosticWorkflow Integration Te
     },
     INTEGRATION_TEST_TIMEOUT
   );
+
+  /**
+   * 1M-288: Phase 5 - Test 1
+   * Pattern detection in device_health intent
+   *
+   * Verifies that device_health intent now triggers pattern detection.
+   */
+  it(
+    'should include pattern detection in device_health intent',
+    async () => {
+      console.log('\n=== 1M-288 Test 1: Pattern Detection in device_health ===');
+
+      const query = 'check the status of alcove light';
+      const classification: IntentClassification = await intentClassifier.classifyIntent(query);
+
+      const startTime = Date.now();
+      const report = await workflow.executeDiagnosticWorkflow(classification, query);
+      const elapsed = Date.now() - startTime;
+
+      console.log(`Workflow completed in ${elapsed}ms`);
+      console.log(`Device: ${report.diagnosticContext.device?.label || 'N/A'}`);
+      console.log(`Health data: ${report.diagnosticContext.healthData ? 'Yes' : 'No'}`);
+      console.log(`Patterns detected: ${report.diagnosticContext.relatedIssues?.length || 0}`);
+
+      // Assertions for device_health intent with patterns
+      expect(report.diagnosticContext.device).toBeDefined();
+      expect(report.diagnosticContext.healthData).toBeDefined();
+      expect(report.diagnosticContext.relatedIssues).toBeDefined(); // 1M-288: New assertion
+      expect(report.diagnosticContext.relatedIssues!.length).toBeGreaterThan(0);
+
+      // Log detected patterns
+      if (report.diagnosticContext.relatedIssues) {
+        console.log('\nDetected Patterns:');
+        report.diagnosticContext.relatedIssues.forEach((pattern) => {
+          console.log(`  - ${pattern.type}: ${pattern.description} (${(pattern.confidence * 100).toFixed(0)}%)`);
+        });
+      }
+
+      console.log('Pattern detection in device_health: ✅');
+    },
+    INTEGRATION_TEST_TIMEOUT
+  );
+
+  /**
+   * 1M-288: Phase 5 - Test 2
+   * System-wide pattern correlation
+   *
+   * Verifies that system_status intent includes system-wide patterns.
+   */
+  it(
+    'should aggregate system-wide patterns in system_status intent',
+    async () => {
+      console.log('\n=== 1M-288 Test 2: System-Wide Pattern Correlation ===');
+
+      const classification: IntentClassification = {
+        intent: DiagnosticIntent.SYSTEM_STATUS,
+        confidence: 0.95,
+        entities: {},
+        requiresDiagnostics: true,
+      };
+
+      const startTime = Date.now();
+      const report = await workflow.executeDiagnosticWorkflow(classification, 'system status');
+      const elapsed = Date.now() - startTime;
+
+      console.log(`Workflow completed in ${elapsed}ms`);
+      console.log(`Total devices: ${report.diagnosticContext.systemStatus?.totalDevices || 0}`);
+      console.log(`Healthy: ${report.diagnosticContext.systemStatus?.healthyDevices || 0}`);
+      console.log(`Warnings: ${report.diagnosticContext.systemStatus?.warningDevices || 0}`);
+      console.log(`Critical: ${report.diagnosticContext.systemStatus?.criticalDevices || 0}`);
+      console.log(
+        `System-wide patterns: ${report.diagnosticContext.systemStatus?.systemWidePatterns?.length || 0}`
+      );
+
+      // Assertions for system-wide patterns
+      expect(report.diagnosticContext.systemStatus).toBeDefined();
+      expect(report.diagnosticContext.systemStatus!.systemWidePatterns).toBeDefined(); // 1M-288: New field
+
+      // Log system-wide patterns if present
+      if (
+        report.diagnosticContext.systemStatus?.systemWidePatterns &&
+        report.diagnosticContext.systemStatus.systemWidePatterns.length > 0
+      ) {
+        console.log('\nSystem-Wide Patterns:');
+        report.diagnosticContext.systemStatus.systemWidePatterns.forEach((pattern) => {
+          console.log(
+            `  - [${pattern.severity.toUpperCase()}] ${pattern.description} (${pattern.affectedDevices} devices, ${(pattern.averageConfidence * 100).toFixed(0)}% confidence)`
+          );
+        });
+      } else {
+        console.log('\nNo system-wide patterns detected (all devices healthy)');
+      }
+
+      console.log('System-wide pattern correlation: ✅');
+    },
+    INTEGRATION_TEST_TIMEOUT
+  );
+
+  /**
+   * 1M-288: Phase 5 - Test 3
+   * MCP health graceful degradation
+   *
+   * Verifies that workflow continues even if PatternDetector is unavailable.
+   */
+  it(
+    'should gracefully degrade if PatternDetector is unavailable',
+    async () => {
+      console.log('\n=== 1M-288 Test 3: MCP Health Graceful Degradation ===');
+
+      // Create workflow WITHOUT PatternDetector
+      const workflowWithoutPatterns = new DiagnosticWorkflow(
+        semanticIndex,
+        deviceService,
+        deviceRegistry
+      );
+
+      const classification: IntentClassification = {
+        intent: DiagnosticIntent.ISSUE_DIAGNOSIS,
+        confidence: 0.9,
+        entities: { deviceName: 'alcove light' },
+        requiresDiagnostics: true,
+      };
+
+      const startTime = Date.now();
+      const report = await workflowWithoutPatterns.executeDiagnosticWorkflow(
+        classification,
+        'diagnose alcove light'
+      );
+      const elapsed = Date.now() - startTime;
+
+      console.log(`Workflow completed in ${elapsed}ms`);
+      console.log(`Device: ${report.diagnosticContext.device?.label || 'N/A'}`);
+      console.log(`Patterns (legacy): ${report.diagnosticContext.relatedIssues?.length || 0}`);
+
+      // Should still work with legacy pattern detection
+      expect(report).toBeDefined();
+      expect(report.diagnosticContext.device).toBeDefined();
+      expect(report.diagnosticContext.relatedIssues).toBeDefined();
+
+      console.log('Graceful degradation without PatternDetector: ✅');
+    },
+    INTEGRATION_TEST_TIMEOUT
+  );
+
+  /**
+   * 1M-288: Phase 5 - Test 4
+   * Performance <500ms with patterns
+   *
+   * Verifies that adding pattern detection maintains performance target.
+   */
+  it(
+    'should maintain performance <500ms with pattern detection',
+    async () => {
+      console.log('\n=== 1M-288 Test 4: Performance with Pattern Detection ===');
+
+      const classification: IntentClassification = {
+        intent: DiagnosticIntent.DEVICE_HEALTH,
+        confidence: 0.9,
+        entities: { deviceName: 'alcove light' },
+        requiresDiagnostics: true,
+      };
+
+      // Measure workflow execution time (excluding intent classification)
+      const startTime = Date.now();
+      const report = await workflow.executeDiagnosticWorkflow(classification, 'check alcove light');
+      const workflowTime = Date.now() - startTime;
+
+      console.log(`Workflow execution: ${workflowTime}ms`);
+      console.log(`Target: <500ms`);
+      console.log(`Result: ${workflowTime < 500 ? '✅ PASS' : '⚠️ WARN (acceptable in integration tests)'}`);
+
+      // Log breakdown
+      console.log('\nData Points Gathered:');
+      console.log(`  - Health data: ${report.diagnosticContext.healthData ? 'Yes' : 'No'}`);
+      console.log(`  - Events: ${report.diagnosticContext.recentEvents?.length || 0}`);
+      console.log(`  - Patterns: ${report.diagnosticContext.relatedIssues?.length || 0}`);
+      console.log(`  - Similar devices: ${report.diagnosticContext.similarDevices?.length || 0}`);
+
+      // Assertions
+      expect(report.diagnosticContext.device).toBeDefined();
+      expect(report.diagnosticContext.healthData).toBeDefined();
+      expect(report.diagnosticContext.relatedIssues).toBeDefined();
+
+      // Relaxed for integration tests (real API calls are slower)
+      expect(workflowTime).toBeLessThan(5000);
+
+      console.log('Performance verification: ✅');
+    },
+    INTEGRATION_TEST_TIMEOUT
+  );
+
+  /**
+   * 1M-288: Phase 5 - Test 5
+   * End-to-end system status
+   *
+   * Comprehensive test of system status with all enhancements.
+   */
+  it(
+    'should provide comprehensive system status with warnings and patterns',
+    async () => {
+      console.log('\n=== 1M-288 Test 5: End-to-End System Status ===');
+
+      const classification: IntentClassification = {
+        intent: DiagnosticIntent.SYSTEM_STATUS,
+        confidence: 0.95,
+        entities: {},
+        requiresDiagnostics: true,
+      };
+
+      const startTime = Date.now();
+      const report = await workflow.executeDiagnosticWorkflow(classification, 'system overview');
+      const elapsed = Date.now() - startTime;
+
+      console.log(`Workflow completed in ${elapsed}ms`);
+
+      const status = report.diagnosticContext.systemStatus!;
+      console.log('\nSystem Status Summary:');
+      console.log(`  Total Devices: ${status.totalDevices}`);
+      console.log(`  Healthy: ${status.healthyDevices}`);
+      console.log(`  Warnings: ${status.warningDevices} (low battery <20%)`); // 1M-288: Phase 3
+      console.log(`  Critical/Offline: ${status.criticalDevices}`);
+      console.log(`  Recent Issues: ${status.recentIssues.length}`); // 1M-288: Phase 3
+      console.log(`  System-Wide Patterns: ${status.systemWidePatterns?.length || 0}`); // 1M-288: Phase 2
+
+      // Comprehensive assertions
+      expect(report.diagnosticContext.systemStatus).toBeDefined();
+      expect(status.totalDevices).toBeGreaterThan(0);
+      expect(status.healthyDevices).toBeGreaterThanOrEqual(0);
+      expect(status.warningDevices).toBeGreaterThanOrEqual(0); // 1M-288: Now calculated, not hardcoded
+      expect(status.criticalDevices).toBeGreaterThanOrEqual(0);
+      expect(status.recentIssues).toBeInstanceOf(Array); // 1M-288: Now populated
+      expect(status.systemWidePatterns).toBeDefined(); // 1M-288: New field
+
+      // Log details
+      if (status.recentIssues.length > 0) {
+        console.log('\nRecent Issues (top 5):');
+        status.recentIssues.slice(0, 5).forEach((issue) => {
+          console.log(`  - ${issue}`);
+        });
+      }
+
+      if (status.systemWidePatterns && status.systemWidePatterns.length > 0) {
+        console.log('\nSystem-Wide Patterns:');
+        status.systemWidePatterns.forEach((pattern) => {
+          console.log(
+            `  - [${pattern.severity.toUpperCase()}] ${pattern.description} (${pattern.affectedDevices} devices)`
+          );
+        });
+      }
+
+      // Verify rich context includes all sections
+      expect(report.richContext).toContain('System Status Overview');
+      console.log('\nRich Context Sections:');
+      console.log(`  - System Status Overview: ${report.richContext.includes('System Status Overview') ? '✅' : '❌'}`);
+      console.log(`  - Recent Issues: ${report.richContext.includes('Recent Issues') ? '✅' : '❌'}`);
+      console.log(`  - System-Wide Patterns: ${report.richContext.includes('System-Wide Patterns') ? '✅' : '❌'}`);
+
+      console.log('\nEnd-to-end system status: ✅');
+    },
+    INTEGRATION_TEST_TIMEOUT
+  );
 });

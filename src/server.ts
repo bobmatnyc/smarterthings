@@ -9,12 +9,14 @@ import {
   systemTools,
   managementTools,
   diagnosticTools,
+  systemStatusTools,
   initializeDeviceControlTools,
   initializeDeviceQueryTools,
   initializeDeviceEventTools,
   initializeSceneTools,
   initializeManagementTools,
   initializeDiagnosticTools,
+  initializeSystemStatusTools,
 } from './mcp/tools/index.js';
 import { ServiceContainer } from './services/ServiceContainer.js';
 import { smartThingsService } from './smartthings/client.js';
@@ -64,6 +66,7 @@ export function createMcpServer(): Server {
   initializeSceneTools(serviceContainer);
   initializeManagementTools(serviceContainer);
   initializeDiagnosticTools(serviceContainer);
+  initializeSystemStatusTools(serviceContainer);
 
   logger.info('ServiceContainer initialized and injected into all tool modules');
 
@@ -88,6 +91,7 @@ export function createMcpServer(): Server {
     ...systemTools,
     ...managementTools,
     ...diagnosticTools,
+    ...systemStatusTools,
   };
 
   /**
