@@ -200,6 +200,12 @@ export class ServiceProvider implements IServiceProvider {
           'AutomationService not available via ServiceProvider - use ServiceContainer with SmartThingsAdapter'
         );
       },
+      // PatternDetector not available in ServiceProvider (1M-286)
+      get patternDetector(): never {
+        throw new Error(
+          'PatternDetector not available via ServiceProvider - use ServiceContainer.getPatternDetector()'
+        );
+      },
     };
   }
 
@@ -350,6 +356,12 @@ export class CustomServiceProvider implements IServiceProvider {
       get automationService(): never {
         throw new Error(
           'AutomationService not available via ServiceProvider - use ServiceContainer with SmartThingsAdapter'
+        );
+      },
+      // PatternDetector not available in ServiceProvider (1M-286)
+      get patternDetector(): never {
+        throw new Error(
+          'PatternDetector not available via ServiceProvider - use ServiceContainer.getPatternDetector()'
         );
       },
     };

@@ -36,6 +36,7 @@ import type { UnifiedDevice, UniversalDeviceId } from '../types/unified-device.j
 import { detectEventGaps } from '../types/device-events.js';
 import type { ServiceContainer } from './ServiceContainer.js';
 import type { RuleMatch } from './AutomationService.js';
+import type { PatternDetector } from './PatternDetector.js';
 import logger from '../utils/logger.js';
 
 // Helper function to safely convert UniversalDeviceId to DeviceId
@@ -220,6 +221,7 @@ export class DiagnosticWorkflow {
   private deviceService: IDeviceService;
   private deviceRegistry: DeviceRegistry;
   private serviceContainer?: ServiceContainer;
+  private patternDetector?: PatternDetector;
 
   /**
    * Create DiagnosticWorkflow instance.
@@ -228,19 +230,23 @@ export class DiagnosticWorkflow {
    * @param deviceService Device operations service
    * @param deviceRegistry Device registry for lookups
    * @param serviceContainer Optional service container for automation identification
+   * @param patternDetector Optional pattern detector service (1M-286)
    */
   constructor(
     semanticIndex: SemanticIndex,
     deviceService: IDeviceService,
     deviceRegistry: DeviceRegistry,
-    serviceContainer?: ServiceContainer
+    serviceContainer?: ServiceContainer,
+    patternDetector?: PatternDetector
   ) {
     this.semanticIndex = semanticIndex;
     this.deviceService = deviceService;
     this.deviceRegistry = deviceRegistry;
     this.serviceContainer = serviceContainer;
+    this.patternDetector = patternDetector;
     logger.info('DiagnosticWorkflow initialized', {
       automationServiceAvailable: !!serviceContainer,
+      patternDetectorAvailable: !!patternDetector,
     });
   }
 
@@ -978,13 +984,20 @@ export class DiagnosticWorkflow {
   /**
    * Detect issue patterns in event history.
    *
+   * Related Ticket: 1M-286 - PatternDetector service integration
+   *
+   * Design Decision: Delegate to PatternDetector service when available, fallback to legacy algorithms
+   * Rationale: PatternDetector provides enhanced detection with battery monitoring and severity classification.
+   * Legacy algorithms maintained for backward compatibility during rollout.
+   *
    * Analyzes device event timeline for:
    * - Rapid state changes (<10s gaps) indicating automation
    * - Automation triggers (<5s gaps, high confidence)
    * - Connectivity gaps (>1h event gaps)
+   * - Battery degradation (when PatternDetector available)
    *
    * Performance: O(n log n) where n = number of events
-   * Target: <100ms for 100 events
+   * Target: <100ms for 100 events (PatternDetector: <500ms with all algorithms)
    *
    * @param deviceId Device ID to analyze
    * @returns Issue patterns with type marker
@@ -1012,7 +1025,34 @@ export class DiagnosticWorkflow {
         };
       }
 
-      // Step 2: Run pattern detection algorithms
+      // Step 2: Use PatternDetector service if available (1M-286)
+      if (this.patternDetector) {
+        const detectionResult = await this.patternDetector.detectAll(deviceId, events);
+
+        logger.debug('PatternDetector execution complete', {
+          deviceId,
+          patternsFound: detectionResult.patterns.length,
+          executionTimeMs: detectionResult.executionTimeMs,
+          allAlgorithmsSucceeded: detectionResult.allAlgorithmsSucceeded,
+        });
+
+        // Convert DetectedPattern to IssuePattern format for backward compatibility
+        const patterns: IssuePattern[] = detectionResult.patterns.map((p) => ({
+          type: p.type as IssuePattern['type'],
+          description: p.description,
+          occurrences: p.occurrences,
+          confidence: p.confidence,
+        }));
+
+        return {
+          type: 'patterns',
+          value: patterns,
+        };
+      }
+
+      // Step 3: Fallback to legacy algorithms if PatternDetector not available
+      logger.debug('Using legacy pattern detection algorithms', { deviceId });
+
       const patterns: IssuePattern[] = [];
 
       // Algorithm 1: Detect rapid state changes
@@ -1027,7 +1067,7 @@ export class DiagnosticWorkflow {
       const connectivityPattern = this.detectConnectivityIssues(events);
       if (connectivityPattern) patterns.push(connectivityPattern);
 
-      // Step 3: Add "normal" pattern if no issues detected
+      // Step 4: Add "normal" pattern if no issues detected
       if (patterns.length === 0) {
         patterns.push({
           type: 'normal',
@@ -1037,7 +1077,7 @@ export class DiagnosticWorkflow {
         });
       }
 
-      // Step 4: Sort by confidence (highest first)
+      // Step 5: Sort by confidence (highest first)
       patterns.sort((a, b) => b.confidence - a.confidence);
 
       return {

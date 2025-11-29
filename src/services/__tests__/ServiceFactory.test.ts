@@ -153,15 +153,19 @@ describe('ServiceFactory', () => {
           .mockResolvedValue({ events: [], metadata: {}, summary: 'No events' }),
       };
 
+      const mockPatternDetector = {} as any; // 1M-286: Mock PatternDetector
+
       const services = ServiceFactory.createServicesWithMocks(mockSmartThingsService, {
         deviceService: mockDeviceService,
         automationService: mockAutomationService,
+        patternDetector: mockPatternDetector,
       });
 
       expect(services.deviceService).toBe(mockDeviceService);
       expect(services.locationService).toBeDefined();
       expect(services.sceneService).toBeDefined();
       expect(services.automationService).toBe(mockAutomationService);
+      expect(services.patternDetector).toBe(mockPatternDetector);
     });
 
     it('should create services with all mocks', () => {
@@ -195,28 +199,36 @@ describe('ServiceFactory', () => {
         findSceneByName: vi.fn().mockResolvedValue({ sceneId: 'mock', sceneName: 'Mock Scene' }),
       };
 
+      const mockPatternDetector = {} as any; // 1M-286: Mock PatternDetector
+
       const services = ServiceFactory.createServicesWithMocks(mockSmartThingsService, {
         deviceService: mockDeviceService,
         locationService: mockLocationService,
         sceneService: mockSceneService,
         automationService: mockAutomationService,
+        patternDetector: mockPatternDetector,
       });
 
       expect(services.deviceService).toBe(mockDeviceService);
       expect(services.locationService).toBe(mockLocationService);
       expect(services.sceneService).toBe(mockSceneService);
       expect(services.automationService).toBe(mockAutomationService);
+      expect(services.patternDetector).toBe(mockPatternDetector);
     });
 
     it('should use real services when no mocks provided', () => {
+      const mockPatternDetector = {} as any; // 1M-286: Mock PatternDetector
+
       const services = ServiceFactory.createServicesWithMocks(mockSmartThingsService, {
         automationService: mockAutomationService,
+        patternDetector: mockPatternDetector, // Required in ServiceMap
       });
 
       expect(services.deviceService).toBeDefined();
       expect(services.locationService).toBeDefined();
       expect(services.sceneService).toBeDefined();
       expect(services.automationService).toBe(mockAutomationService);
+      expect(services.patternDetector).toBe(mockPatternDetector);
     });
   });
 

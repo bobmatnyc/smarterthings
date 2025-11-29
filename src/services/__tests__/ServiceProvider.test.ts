@@ -225,6 +225,7 @@ describe('CustomServiceProvider', () => {
       location: mockLocationFactory,
       scene: mockSceneFactory,
       automation: vi.fn().mockResolvedValue({} as any), // Placeholder for tests
+      pattern: vi.fn().mockResolvedValue({} as any), // 1M-286: PatternDetector factory
     });
   });
 

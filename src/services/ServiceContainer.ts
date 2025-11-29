@@ -57,6 +57,7 @@ import { DeviceService } from './DeviceService.js';
 import { LocationService } from './LocationService.js';
 import { SceneService } from './SceneService.js';
 import { AutomationService } from './AutomationService.js';
+import { PatternDetector } from './PatternDetector.js';
 import type { SmartThingsService } from '../smartthings/client.js';
 import type { SmartThingsAdapter } from '../platforms/smartthings/SmartThingsAdapter.js';
 import { RetryPolicyManager, type CircuitBreakerStatus } from './errors/RetryPolicy.js';
@@ -65,7 +66,7 @@ import logger from '../utils/logger.js';
 /**
  * Service type identifiers for registration and lookup.
  */
-export type ServiceType = 'device' | 'location' | 'scene' | 'automation';
+export type ServiceType = 'device' | 'location' | 'scene' | 'automation' | 'pattern';
 
 /**
  * Service map containing all available services.
@@ -75,6 +76,7 @@ export interface ServiceMap {
   locationService: ILocationService;
   sceneService: ISceneService;
   automationService: IAutomationService;
+  patternDetector: PatternDetector;
 }
 
 /**
@@ -149,6 +151,7 @@ export class ServiceContainer {
   private locationService?: ILocationService;
   private sceneService?: ISceneService;
   private automationService?: IAutomationService;
+  private patternDetector?: PatternDetector;
   private initialized = false;
 
   /**
@@ -238,6 +241,25 @@ export class ServiceContainer {
   }
 
   /**
+   * Get PatternDetector instance (singleton).
+   *
+   * Related Ticket: 1M-286 - Phase 3.1: Implement PatternDetector service
+   *
+   * Creates PatternDetector on first access and reuses for subsequent calls.
+   *
+   * Dependencies:
+   * - DeviceService (for device health and battery data)
+   *
+   * @returns PatternDetector implementation
+   */
+  getPatternDetector(): PatternDetector {
+    if (!this.patternDetector) {
+      this.patternDetector = new PatternDetector(this.getDeviceService());
+    }
+    return this.patternDetector;
+  }
+
+  /**
    * Initialize all services.
    *
    * Triggers lazy initialization of all services.
@@ -255,6 +277,7 @@ export class ServiceContainer {
     this.getDeviceService();
     this.getLocationService();
     this.getSceneService();
+    this.getPatternDetector(); // 1M-286
 
     // Initialize AutomationService if adapter available
     if (this.smartThingsAdapter) {
@@ -279,6 +302,7 @@ export class ServiceContainer {
     this.locationService = undefined;
     this.sceneService = undefined;
     this.automationService = undefined;
+    this.patternDetector = undefined; // 1M-286
     this.initialized = false;
   }
 
@@ -300,6 +324,7 @@ export class ServiceContainer {
       location: { healthy: false, timestamp },
       scene: { healthy: false, timestamp },
       automation: { healthy: false, timestamp },
+      pattern: { healthy: false, timestamp }, // 1M-286
     };
 
     // Check DeviceService health
@@ -362,12 +387,25 @@ export class ServiceContainer {
       };
     }
 
+    // Check PatternDetector health (1M-286)
+    try {
+      this.getPatternDetector(); // Trigger creation to verify it works
+      services.pattern = { healthy: true, timestamp };
+    } catch (error) {
+      services.pattern = {
+        healthy: false,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        timestamp,
+      };
+    }
+
     // Overall health is healthy only if all services are healthy
     const healthy =
       services.device.healthy &&
       services.location.healthy &&
       services.scene.healthy &&
-      services.automation.healthy;
+      services.automation.healthy &&
+      services.pattern.healthy;
 
     return { healthy, services, timestamp };
   }
@@ -385,6 +423,7 @@ export class ServiceContainer {
       locationService: this.getLocationService(),
       sceneService: this.getSceneService(),
       automationService: this.getAutomationService(), // Will throw if adapter not provided
+      patternDetector: this.getPatternDetector(), // 1M-286
     };
     return services;
   }
@@ -434,7 +473,7 @@ export class ServiceContainer {
    */
   getService(
     serviceType: ServiceType
-  ): IDeviceService | ILocationService | ISceneService | IAutomationService {
+  ): IDeviceService | ILocationService | ISceneService | IAutomationService | PatternDetector {
     switch (serviceType) {
       case 'device':
         return this.getDeviceService();
@@ -444,6 +483,8 @@ export class ServiceContainer {
         return this.getSceneService();
       case 'automation':
         return this.getAutomationService();
+      case 'pattern':
+        return this.getPatternDetector(); // 1M-286
       default:
         throw new Error(`Unknown service type: ${serviceType}`);
     }
@@ -475,6 +516,7 @@ export class ServiceContainer {
       location: this.getServiceErrorStats('LocationService'),
       scene: this.getServiceErrorStats('SceneService'),
       automation: this.getServiceErrorStats('AutomationService'),
+      pattern: this.getServiceErrorStats('PatternDetector'), // 1M-286
     };
 
     const totalErrors = Object.values(services).reduce((sum, stats) => sum + stats.totalErrors, 0);
@@ -580,6 +622,8 @@ export class ServiceContainer {
         return 'SceneService';
       case 'automation':
         return 'AutomationService';
+      case 'pattern':
+        return 'PatternDetector'; // 1M-286
       default:
         throw new Error(`Unknown service type: ${serviceType}`);
     }

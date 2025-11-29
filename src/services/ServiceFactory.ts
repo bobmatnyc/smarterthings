@@ -159,6 +159,13 @@ export class ServiceFactory {
           'AutomationService not available via ServiceFactory - use ServiceContainer with SmartThingsAdapter'
         );
       },
+      // Note: PatternDetector requires DeviceService, not available in static factory
+      // Use ServiceContainer.getPatternDetector() for pattern detection (1M-286)
+      get patternDetector(): never {
+        throw new Error(
+          'PatternDetector not available via ServiceFactory - use ServiceContainer.getPatternDetector()'
+        );
+      },
     };
   }
 
@@ -200,6 +207,14 @@ export class ServiceFactory {
         (() => {
           throw new Error(
             'AutomationService not available via ServiceFactory - use ServiceContainer with SmartThingsAdapter or provide mock'
+          );
+        })(),
+      // Allow mocking patternDetector for tests, otherwise throw error (1M-286)
+      patternDetector:
+        mocks?.patternDetector ??
+        (() => {
+          throw new Error(
+            'PatternDetector not available via ServiceFactory - use ServiceContainer.getPatternDetector() or provide mock'
           );
         })(),
     };
