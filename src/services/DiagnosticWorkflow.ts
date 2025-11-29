@@ -872,12 +872,27 @@ export class DiagnosticWorkflow {
         }
       }
 
+      // Determine online status from both registry and API status
+      // Priority: API healthCheck status > registry online status
+      const mainComponent = status.components?.['main'];
+      const healthComponent = mainComponent ? mainComponent['healthCheck'] : undefined;
+      const healthStatus = healthComponent ? healthComponent['healthStatus'] : undefined;
+
+      let online: boolean;
+      if (healthStatus && typeof healthStatus.value === 'string') {
+        // Use API health status if available (e.g., 'online', 'offline')
+        online = healthStatus.value.toLowerCase() === 'online';
+      } else {
+        // Fallback to registry status
+        online = device?.online ?? false;
+      }
+
       return {
         type: 'health',
         value: {
-          status: device?.online ? 'online' : 'offline',
+          status: online ? 'online' : 'offline',
           batteryLevel,
-          online: device?.online ?? false,
+          online,
           lastActivity: device?.lastSeen?.toISOString(),
           currentState: status.components?.['main'],
         },
