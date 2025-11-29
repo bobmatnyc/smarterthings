@@ -42,14 +42,20 @@ describe('DeviceService.getDeviceEvents', () => {
     overrides?: Partial<DeviceEventResult>
   ): DeviceEventResult => {
     // Ensure metadata always has gaps field
-    const metadata = {
+    const metadata: DeviceEventResult['metadata'] = {
       totalCount: events.length,
       hasMore: false,
       appliedFilters: {},
       gapDetected: false,
       largestGapMs: 0,
       reachedRetentionLimit: false,
-      gaps: [],
+      gaps: [] as Array<{
+        gapStart: number;
+        gapEnd: number;
+        durationMs: number;
+        durationText: string;
+        likelyConnectivityIssue: boolean;
+      }>,
       dateRange: {
         earliest: events[0]?.time || new Date().toISOString(),
         latest: events[events.length - 1]?.time || new Date().toISOString(),
@@ -57,11 +63,6 @@ describe('DeviceService.getDeviceEvents', () => {
       },
       ...overrides?.metadata,
     };
-
-    // Ensure gaps is present even after spread
-    if (!('gaps' in metadata)) {
-      metadata.gaps = [];
-    }
 
     // Destructure overrides to exclude metadata (we've already merged it)
     const { metadata: _ignored, ...rest } = overrides || {};

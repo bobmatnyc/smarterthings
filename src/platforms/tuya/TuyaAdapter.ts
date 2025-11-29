@@ -71,7 +71,6 @@ import logger from '../../utils/logger.js';
 import type {
   TuyaAdapterConfig,
   TuyaDevice,
-  TuyaAPIResponse,
   TuyaDataPoint,
   TuyaHome,
   TuyaRoom,
@@ -325,10 +324,9 @@ export class TuyaAdapter extends EventEmitter implements IDeviceAdapter {
       });
 
       if (!response.success || !response.result) {
-        throw new DeviceError(
+        throw new NetworkError(
           'Failed to list devices: API returned unsuccessful response',
-          'DEVICE_LIST_FAILED',
-          { platform: this.platform, response }
+          { platform: this.platform }
         );
       }
 
@@ -438,10 +436,9 @@ export class TuyaAdapter extends EventEmitter implements IDeviceAdapter {
       });
 
       if (!response.success || !response.result) {
-        throw new DeviceError(
+        throw new NetworkError(
           'Failed to get device state: API returned unsuccessful response',
-          'DEVICE_STATE_FAILED',
-          { platform: this.platform, deviceId: platformDeviceId, response }
+          { platform: this.platform, deviceId: platformDeviceId }
         );
       }
 
@@ -494,7 +491,7 @@ export class TuyaAdapter extends EventEmitter implements IDeviceAdapter {
 
     try {
       const device = await this.getDevice(platformDeviceId);
-      const capabilities = device.capabilities;
+      const capabilities = [...device.capabilities]; // Create mutable copy
 
       this.lastHealthCheck = new Date();
       this.errorCount = 0;
@@ -785,10 +782,9 @@ export class TuyaAdapter extends EventEmitter implements IDeviceAdapter {
       });
 
       if (!response.success || !response.result) {
-        throw new DeviceError(
+        throw new NetworkError(
           'Failed to list locations: API returned unsuccessful response',
-          'LOCATION_LIST_FAILED',
-          { platform: this.platform, response }
+          { platform: this.platform }
         );
       }
 
@@ -841,10 +837,9 @@ export class TuyaAdapter extends EventEmitter implements IDeviceAdapter {
         });
 
         if (!response.success || !response.result) {
-          throw new DeviceError(
+          throw new NetworkError(
             'Failed to list rooms: API returned unsuccessful response',
-            'ROOM_LIST_FAILED',
-            { platform: this.platform, locationId, response }
+            { platform: this.platform, locationId }
           );
         }
 
@@ -1106,7 +1101,7 @@ export class TuyaAdapter extends EventEmitter implements IDeviceAdapter {
    * @param dpArray Array of Tuya data points
    * @returns Unified device state
    */
-  private mapStatusToState(platformDeviceId: string, dpArray: TuyaDataPoint[]): DeviceState {
+  private mapStatusToState(platformDeviceId: string, dpArray: readonly TuyaDataPoint[]): DeviceState {
     const attributes: Record<string, unknown> = {};
 
     for (const dp of dpArray) {

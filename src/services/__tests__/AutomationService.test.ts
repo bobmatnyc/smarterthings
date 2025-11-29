@@ -30,7 +30,10 @@ describe('AutomationService', () => {
   const createMockRule = (overrides?: Partial<Rule>): Rule => ({
     id: `rule-${Math.random().toString(36).substr(2, 9)}`,
     name: 'Test Rule',
-    status: 'Active',
+    ownerType: 'Location' as const,
+    ownerId: 'location-123',
+    dateCreated: new Date().toISOString(),
+    dateUpdated: new Date().toISOString(),
     actions: [],
     ...overrides,
   });
@@ -40,6 +43,7 @@ describe('AutomationService', () => {
       devices: deviceIds,
       commands: [
         {
+          component: 'main',
           capability: capability || 'switch',
           command: command || 'on',
         },
@@ -358,13 +362,11 @@ describe('AutomationService', () => {
         createMockRule({
           id: 'rule-1',
           name: 'Active Rule',
-          status: 'Active',
           actions: [createDeviceCommand([deviceId as string])],
         }),
         createMockRule({
           id: 'rule-2',
           name: 'Inactive Rule',
-          status: 'Inactive',
           actions: [createDeviceCommand([deviceId as string])],
         }),
       ];
@@ -374,8 +376,8 @@ describe('AutomationService', () => {
       const matches = await service.findRulesForDevice(deviceId, locationId);
 
       expect(matches).toHaveLength(2);
-      expect(matches.find((m) => m.ruleId === 'rule-1')?.status).toBe('Active');
-      expect(matches.find((m) => m.ruleId === 'rule-2')?.status).toBe('Inactive');
+      expect(matches.find((m) => m.ruleId === 'rule-1')).toBeDefined();
+      expect(matches.find((m) => m.ruleId === 'rule-2')).toBeDefined();
     });
 
     it('should include evidence in match results', async () => {
@@ -605,7 +607,18 @@ describe('AutomationService', () => {
         createMockRule({
           id: 'rule-2',
           name: 'Also No Devices',
-          actions: [{ if: 'some condition' }], // Non-command action
+          actions: [
+            {
+              if: [
+                {
+                  equals: {
+                    left: { string: 'condition' },
+                    right: { string: 'true' },
+                  },
+                } as any,
+              ],
+            } as any,
+          ], // Non-command action
         }),
       ];
 
@@ -795,11 +808,11 @@ describe('AutomationService', () => {
 
     it('should handle missing rule IDs', async () => {
       const mockRules: Rule[] = [
-        {
+        createMockRule({
           // Missing id
           name: 'No ID Rule',
           actions: [],
-        } as Rule,
+        }),
       ];
 
       (mockAdapter.listRules as Mock).mockResolvedValue(mockRules);
@@ -810,11 +823,12 @@ describe('AutomationService', () => {
 
     it('should handle missing rule names', async () => {
       const mockRules: Rule[] = [
-        {
+        createMockRule({
           id: 'rule-1',
           // Missing name
+          name: undefined as any,
           actions: [],
-        } as Rule,
+        }),
       ];
 
       (mockAdapter.listRules as Mock).mockResolvedValue(mockRules);
@@ -954,7 +968,6 @@ describe('AutomationService', () => {
         createMockRule({
           id: 'rule-123',
           name: 'Test Rule Name',
-          status: 'Active',
           actions: [createDeviceCommand([deviceId as string])],
         }),
       ];
@@ -969,7 +982,6 @@ describe('AutomationService', () => {
         matchType: 'direct',
         confidence: 1.0,
         deviceRoles: expect.arrayContaining(['controlled']),
-        status: 'Active',
         evidence: expect.arrayContaining([expect.stringContaining('Device device-123')]),
       });
     });

@@ -34,7 +34,6 @@ import {
   type UniversalDeviceId,
   type LocationId,
   type RoomId,
-  type SceneId,
   createUniversalDeviceId,
   parseUniversalDeviceId,
 } from '../../types/unified-device.js';
@@ -72,11 +71,8 @@ import type {
   LutronDevice,
   LutronZone,
   LutronArea,
-  LutronScene,
   LutronButtonEvent,
   LutronButtonAction,
-  LEAPZoneStatus,
-  LEAPOccupancyUpdate,
   LEAPConnectionOptions,
 } from './types.js';
 import {
@@ -889,10 +885,9 @@ export class LutronAdapter extends EventEmitter implements IDeviceAdapter {
   /**
    * List scenes/automations.
    *
-   * @param locationId Optional location filter
    * @returns Array of scene information
    */
-  async listScenes(locationId?: string): Promise<SceneInfo[]> {
+  async listScenes(): Promise<SceneInfo[]> {
     // Scenes not supported in Lutron LEAP integration
     logger.warn('Scene listing not supported for Lutron', { platform: this.platform });
     return [];
@@ -961,6 +956,7 @@ export class LutronAdapter extends EventEmitter implements IDeviceAdapter {
         timeout: 30000, // 30 second connection timeout
       };
 
+      // @ts-expect-error - SmartBridge constructor signature varies by version
       this.bridge = new SmartBridge(connectionOptions);
 
       await retryWithBackoff(async () => {
@@ -1044,10 +1040,8 @@ export class LutronAdapter extends EventEmitter implements IDeviceAdapter {
         areas: this.areas.size,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DeviceError(
-        `Failed to load device tree: ${message}`,
-        'DEVICE_TREE_LOAD_FAILED',
+      throw new NetworkError(
+        `Failed to load device tree from Smart Bridge`,
         { platform: this.platform }
       );
     }
@@ -1235,7 +1229,7 @@ export class LutronAdapter extends EventEmitter implements IDeviceAdapter {
    */
   private async executeSwitchCommand(
     deviceId: string,
-    device: LutronDevice,
+    _device: LutronDevice,
     command: DeviceCommand
   ): Promise<void> {
     const level = command.command === 'on' ? 100 : 0;
@@ -1247,7 +1241,7 @@ export class LutronAdapter extends EventEmitter implements IDeviceAdapter {
    */
   private async executeDimmerCommand(
     deviceId: string,
-    device: LutronDevice,
+    _device: LutronDevice,
     command: DeviceCommand
   ): Promise<void> {
     if (command.command === 'setLevel' && command.parameters?.['level'] !== undefined) {
@@ -1267,7 +1261,7 @@ export class LutronAdapter extends EventEmitter implements IDeviceAdapter {
    */
   private async executeShadeCommand(
     deviceId: string,
-    device: LutronDevice,
+    _device: LutronDevice,
     command: DeviceCommand
   ): Promise<void> {
     if (command.parameters?.['position'] !== undefined) {
@@ -1287,7 +1281,7 @@ export class LutronAdapter extends EventEmitter implements IDeviceAdapter {
    */
   private async executeFanCommand(
     deviceId: string,
-    device: LutronDevice,
+    _device: LutronDevice,
     command: DeviceCommand
   ): Promise<void> {
     if (command.parameters?.['speed'] !== undefined) {
@@ -1436,7 +1430,7 @@ export class LutronAdapter extends EventEmitter implements IDeviceAdapter {
   /**
    * Emit state change event.
    */
-  private emitStateChangeEvent(device: LutronDevice, changes: Record<string, unknown>): void {
+  private emitStateChangeEvent(device: LutronDevice, _changes: Record<string, unknown>): void {
     // Create state change event
     const stateChangeEvent: Partial<StateChangeEvent> = {
       device: this.mapDeviceToUnified(device),

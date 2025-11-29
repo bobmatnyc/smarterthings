@@ -13,7 +13,7 @@
  */
 
 import { DeviceCapability } from '../../types/unified-device.js';
-import { LutronDeviceType, LutronDevice, LutronZone } from './types.js';
+import { LutronDeviceType, LutronDevice } from './types.js';
 import logger from '../../utils/logger.js';
 
 /**
