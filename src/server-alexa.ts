@@ -68,6 +68,7 @@ import type { DeviceId } from './types/smartthings.js';
 import { McpClient } from './mcp/client.js';
 import { LlmService } from './services/llm.js';
 import { ChatOrchestrator } from './services/chat-orchestrator.js';
+import { registerOAuthRoutes } from './routes/oauth.js';
 
 /**
  * Server port (configurable via environment)
@@ -756,7 +757,19 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
     }
   );
 
-  logger.info('Routes registered (/alexa, /alexa-smarthome, /api/chat, /api/devices/*, /health, /)');
+  // ====================================================================
+  // OAuth Routes (for SmartThings OAuth integration)
+  // ====================================================================
+  try {
+    await registerOAuthRoutes(server);
+  } catch (error) {
+    // OAuth routes are optional - if not configured, log warning but don't fail
+    logger.warn('OAuth routes not registered (optional feature)', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  logger.info('Routes registered (/alexa, /alexa-smarthome, /api/chat, /api/devices/*, /health, /, /auth/smartthings/*)');
 }
 
 /**
