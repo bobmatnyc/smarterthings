@@ -203,6 +203,8 @@ export interface ISceneService {
 /**
  * Interface for automation-related operations.
  *
+ * Ticket: 1M-411 - Phase 4.1: Implement automation script building MCP tools
+ *
  * Complexity: O(R×A) for rule filtering where R=rules, A=actions per rule
  * Performance: Caching provides <10ms lookups for repeated queries
  */
@@ -248,6 +250,54 @@ export interface IAutomationService {
    * @param locationId Optional location ID to clear, omit to clear all
    */
   clearCache(locationId?: LocationId): void;
+
+  /**
+   * Create a new automation rule.
+   *
+   * Ticket: 1M-411 - Phase 4.1
+   *
+   * @param locationId Location UUID
+   * @param rule Rule configuration to create
+   * @returns Created rule with generated ID
+   * @throws Error if creation fails
+   */
+  createRule(locationId: LocationId, rule: any): Promise<Rule>;
+
+  /**
+   * Update an existing automation rule.
+   *
+   * Ticket: 1M-411 - Phase 4.1
+   *
+   * @param ruleId Rule UUID to update
+   * @param locationId Location UUID
+   * @param updates Partial rule configuration with updates
+   * @returns Updated rule
+   * @throws Error if update fails or rule not found
+   */
+  updateRule(ruleId: string, locationId: LocationId, updates: any): Promise<Rule>;
+
+  /**
+   * Delete an automation rule.
+   *
+   * Ticket: 1M-411 - Phase 4.1
+   *
+   * @param ruleId Rule UUID to delete
+   * @param locationId Location UUID
+   * @throws Error if deletion fails or rule not found
+   */
+  deleteRule(ruleId: string, locationId: LocationId): Promise<void>;
+
+  /**
+   * Execute an automation rule manually.
+   *
+   * Ticket: 1M-411 - Phase 4.1
+   *
+   * @param ruleId Rule UUID to execute
+   * @param locationId Location UUID
+   * @returns Execution result with status and action results
+   * @throws Error if execution fails or rule not found
+   */
+  executeRule(ruleId: string, locationId: LocationId): Promise<any>;
 }
 
 /**

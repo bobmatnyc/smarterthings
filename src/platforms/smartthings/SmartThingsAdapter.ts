@@ -1023,6 +1023,155 @@ export class SmartThingsAdapter extends EventEmitter implements IDeviceAdapter {
     }
   }
 
+  /**
+   * Create a new rule for automation.
+   *
+   * Ticket: 1M-411 - Phase 4.1: Implement automation script building MCP tools
+   *
+   * @param locationId Location UUID (required by SmartThings Rules API)
+   * @param rule Rule configuration to create
+   * @returns Created rule with generated ID
+   */
+  async createRule(locationId: string, rule: any): Promise<Rule> {
+    this.ensureInitialized();
+
+    logger.debug('Creating rule', { platform: this.platform, locationId, ruleName: rule.name });
+
+    try {
+      const createdRule = await retryWithBackoff(async () => {
+        return await this.client!.rules.create(rule, locationId);
+      });
+
+      this.lastHealthCheck = new Date();
+      this.errorCount = 0;
+
+      logger.info('Rule created successfully', {
+        platform: this.platform,
+        ruleId: createdRule.id,
+        ruleName: createdRule.name,
+        locationId,
+      });
+
+      return createdRule;
+    } catch (error) {
+      const wrappedError = this.wrapError(error, 'createRule', { locationId, ruleName: rule.name });
+      this.errorCount++;
+      this.emitError(wrappedError, 'createRule');
+      throw wrappedError;
+    }
+  }
+
+  /**
+   * Update an existing rule.
+   *
+   * Ticket: 1M-411 - Phase 4.1: Implement automation script building MCP tools
+   *
+   * @param ruleId Rule UUID to update
+   * @param locationId Location UUID (required by SmartThings Rules API)
+   * @param updates Rule configuration updates
+   * @returns Updated rule
+   */
+  async updateRule(ruleId: string, locationId: string, updates: any): Promise<Rule> {
+    this.ensureInitialized();
+
+    logger.debug('Updating rule', { platform: this.platform, ruleId, locationId });
+
+    try {
+      const updatedRule = await retryWithBackoff(async () => {
+        return await this.client!.rules.update(ruleId, updates, locationId);
+      });
+
+      this.lastHealthCheck = new Date();
+      this.errorCount = 0;
+
+      logger.info('Rule updated successfully', {
+        platform: this.platform,
+        ruleId,
+        ruleName: updatedRule.name,
+        locationId,
+      });
+
+      return updatedRule;
+    } catch (error) {
+      const wrappedError = this.wrapError(error, 'updateRule', { ruleId, locationId });
+      this.errorCount++;
+      this.emitError(wrappedError, 'updateRule');
+      throw wrappedError;
+    }
+  }
+
+  /**
+   * Delete a rule.
+   *
+   * Ticket: 1M-411 - Phase 4.1: Implement automation script building MCP tools
+   *
+   * @param ruleId Rule UUID to delete
+   * @param locationId Location UUID (required by SmartThings Rules API)
+   */
+  async deleteRule(ruleId: string, locationId: string): Promise<void> {
+    this.ensureInitialized();
+
+    logger.debug('Deleting rule', { platform: this.platform, ruleId, locationId });
+
+    try {
+      await retryWithBackoff(async () => {
+        await this.client!.rules.delete(ruleId, locationId);
+      });
+
+      this.lastHealthCheck = new Date();
+      this.errorCount = 0;
+
+      logger.info('Rule deleted successfully', {
+        platform: this.platform,
+        ruleId,
+        locationId,
+      });
+    } catch (error) {
+      const wrappedError = this.wrapError(error, 'deleteRule', { ruleId, locationId });
+      this.errorCount++;
+      this.emitError(wrappedError, 'deleteRule');
+      throw wrappedError;
+    }
+  }
+
+  /**
+   * Execute a rule manually.
+   *
+   * Ticket: 1M-411 - Phase 4.1: Implement automation script building MCP tools
+   *
+   * @param ruleId Rule UUID to execute
+   * @param locationId Location UUID (required by SmartThings Rules API)
+   * @returns Execution result with status
+   */
+  async executeRule(ruleId: string, locationId: string): Promise<any> {
+    this.ensureInitialized();
+
+    logger.debug('Executing rule', { platform: this.platform, ruleId, locationId });
+
+    try {
+      const executionResult = await retryWithBackoff(async () => {
+        return await this.client!.rules.execute(ruleId, locationId);
+      });
+
+      this.lastHealthCheck = new Date();
+      this.errorCount = 0;
+
+      logger.info('Rule executed successfully', {
+        platform: this.platform,
+        ruleId,
+        executionId: executionResult.executionId,
+        result: executionResult.result,
+      });
+
+      return executionResult;
+    } catch (error) {
+      const wrappedError = this.wrapError(error, 'executeRule', { ruleId, locationId });
+      this.errorCount++;
+      this.emitError(wrappedError, 'executeRule');
+      throw wrappedError;
+    }
+  }
+
   //
   // Private Helper Methods
   //

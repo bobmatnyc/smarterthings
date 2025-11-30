@@ -271,6 +271,141 @@ export class AutomationService {
   }
 
   /**
+   * Create a new automation rule.
+   *
+   * Ticket: 1M-411 - Phase 4.1: Implement automation script building MCP tools
+   *
+   * Invalidates cache after successful creation to ensure fresh data on next query.
+   *
+   * @param locationId Location UUID
+   * @param rule Rule configuration to create
+   * @returns Created rule with generated ID
+   */
+  async createRule(locationId: LocationId, rule: any): Promise<Rule> {
+    try {
+      const createdRule = await this.adapter.createRule(locationId as string, rule);
+
+      // Invalidate cache to force refresh on next query
+      this.clearCache(locationId);
+
+      logger.info('Automation rule created', {
+        ruleId: createdRule.id,
+        ruleName: createdRule.name,
+        locationId,
+      });
+
+      return createdRule;
+    } catch (error) {
+      logger.error('Failed to create automation rule', {
+        locationId,
+        ruleName: rule.name,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing automation rule.
+   *
+   * Ticket: 1M-411 - Phase 4.1: Implement automation script building MCP tools
+   *
+   * Invalidates cache after successful update to ensure fresh data on next query.
+   *
+   * @param ruleId Rule UUID to update
+   * @param locationId Location UUID
+   * @param updates Partial rule configuration with updates
+   * @returns Updated rule
+   */
+  async updateRule(ruleId: string, locationId: LocationId, updates: any): Promise<Rule> {
+    try {
+      const updatedRule = await this.adapter.updateRule(ruleId, locationId as string, updates);
+
+      // Invalidate cache to force refresh on next query
+      this.clearCache(locationId);
+
+      logger.info('Automation rule updated', {
+        ruleId,
+        ruleName: updatedRule.name,
+        locationId,
+      });
+
+      return updatedRule;
+    } catch (error) {
+      logger.error('Failed to update automation rule', {
+        ruleId,
+        locationId,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Delete an automation rule.
+   *
+   * Ticket: 1M-411 - Phase 4.1: Implement automation script building MCP tools
+   *
+   * Invalidates cache after successful deletion to ensure fresh data on next query.
+   *
+   * @param ruleId Rule UUID to delete
+   * @param locationId Location UUID
+   */
+  async deleteRule(ruleId: string, locationId: LocationId): Promise<void> {
+    try {
+      await this.adapter.deleteRule(ruleId, locationId as string);
+
+      // Invalidate cache to force refresh on next query
+      this.clearCache(locationId);
+
+      logger.info('Automation rule deleted', {
+        ruleId,
+        locationId,
+      });
+    } catch (error) {
+      logger.error('Failed to delete automation rule', {
+        ruleId,
+        locationId,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Execute an automation rule manually.
+   *
+   * Ticket: 1M-411 - Phase 4.1: Implement automation script building MCP tools
+   *
+   * Does not invalidate cache as execution doesn't modify rule definition.
+   *
+   * @param ruleId Rule UUID to execute
+   * @param locationId Location UUID
+   * @returns Execution result with status and action results
+   */
+  async executeRule(ruleId: string, locationId: LocationId): Promise<any> {
+    try {
+      const executionResult = await this.adapter.executeRule(ruleId, locationId as string);
+
+      logger.info('Automation rule executed', {
+        ruleId,
+        locationId,
+        executionId: executionResult.executionId,
+        result: executionResult.result,
+      });
+
+      return executionResult;
+    } catch (error) {
+      logger.error('Failed to execute automation rule', {
+        ruleId,
+        locationId,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Update cache with fetched rules.
    *
    * Builds device index during cache population for O(1) lookups.

@@ -11,3 +11,4 @@ export * from './management.js';
 export * from './diagnostics.js';
 export * from './semantic-search.js';
 export * from './system-status.js';
+export * from './automation.js';
