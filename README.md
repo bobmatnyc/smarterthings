@@ -175,11 +175,48 @@ The `PlatformRegistry` manages multiple platform adapters and routes requests to
 
 ## 🚀 Getting Started
 
-### 1. Installation
+### Quick Install (Recommended)
+
+The fastest way to get started is using the automated installation command:
 
 ```bash
-# Install pnpm if you haven't already
-npm install -g pnpm
+# 1. Install globally
+npm install -g @bobmatnyc/mcp-smarterthings
+
+# 2. Auto-detect and install for your agentic systems
+mcp-smartthings install
+
+# 3. Configure your SmartThings token
+mcp-smartthings config
+```
+
+This will automatically:
+- Detect installed agentic systems (Claude Desktop, Claude Code, Codex, Gemini CLI, Auggie)
+- Add MCP server configuration to each system
+- Preserve existing MCP servers (non-destructive)
+- Set up the correct package paths
+
+**Supported Systems:**
+- ✅ Claude Desktop (macOS/Windows)
+- ✅ Claude Code (CLI)
+- ✅ Codex (CLI with TOML config)
+- ✅ Gemini CLI
+- ✅ Auggie
+
+See [Installation Guide](docs/installation-guide.md) for detailed instructions and options.
+
+---
+
+### Manual Installation (Development)
+
+For development or manual setup:
+
+#### 1. Clone and Install
+
+```bash
+# Clone the repository
+git clone https://github.com/bobmatnyc/mcp-smarterthings
+cd mcp-smarterthings
 
 # Install dependencies
 pnpm install
