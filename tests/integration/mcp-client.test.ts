@@ -129,7 +129,7 @@ describe('MCP SmartThings Server Integration', () => {
       expect(toolNames).toContain('list_scenes');
       expect(toolNames).toContain('list_scenes_by_room');
       expect(toolNames).toContain('execute_scene');
-      expect(toolNames.length).toBe(23); // Updated: server now has 23 tools (13 added since original test)
+      expect(toolNames.length).toBe(30); // Updated: server now has 30 tools (includes Direct Mode API)
     });
 
     it('should provide proper tool metadata', async () => {

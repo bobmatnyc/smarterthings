@@ -281,7 +281,7 @@ export const HistoryQueries = {
       duration_ms
     FROM sync_history
     WHERE source_id = ?
-    ORDER BY sync_time DESC
+    ORDER BY sync_time DESC, id DESC
     LIMIT ?
   `,
 
@@ -301,7 +301,7 @@ export const HistoryQueries = {
       duration_ms
     FROM sync_history
     WHERE source_id = ?
-    ORDER BY sync_time DESC
+    ORDER BY sync_time DESC, id DESC
     LIMIT 1
   `,
 
