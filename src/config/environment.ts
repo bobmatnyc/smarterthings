@@ -50,6 +50,13 @@ const environmentSchema = z.object({
   // SmartThings Configuration
   SMARTTHINGS_PAT: z.string().min(1, 'SmartThings Personal Access Token is required'),
 
+  // SmartThings OAuth Configuration (optional - for OAuth flow)
+  SMARTTHINGS_CLIENT_ID: z.string().optional(),
+  SMARTTHINGS_CLIENT_SECRET: z.string().optional(),
+  OAUTH_REDIRECT_URI: z.string().url().optional(),
+  OAUTH_STATE_SECRET: z.string().optional(),
+  TOKEN_ENCRYPTION_KEY: z.string().optional(),
+
   // MCP Server Configuration
   MCP_SERVER_NAME: z.string().default('smartthings-mcp'),
   MCP_SERVER_VERSION: z.string().default(getPackageVersion()),
