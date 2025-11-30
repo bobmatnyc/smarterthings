@@ -61,6 +61,9 @@ import { handleAlexaDirective } from './alexa/handlers.js';
 import { isAlexaDirective, isCustomSkillRequest } from './alexa/types.js';
 import { handleCustomSkillRequest } from './alexa/custom-skill.js';
 import logger from './utils/logger.js';
+import { ToolExecutor } from './direct/ToolExecutor.js';
+import { ServiceContainer } from './services/ServiceContainer.js';
+import type { DeviceId } from './types/smartthings.js';
 
 /**
  * Server port (configurable via environment)
@@ -73,6 +76,50 @@ const PORT = process.env['ALEXA_SERVER_PORT']
  * Server host (0.0.0.0 for external access, 127.0.0.1 for local only)
  */
 const HOST = process.env['ALEXA_SERVER_HOST'] || '0.0.0.0';
+
+/**
+ * Singleton ToolExecutor instance for device operations
+ */
+let toolExecutor: ToolExecutor | null = null;
+
+function getToolExecutor(): ToolExecutor {
+  if (!toolExecutor) {
+    const container = ServiceContainer.getInstance();
+    toolExecutor = new ToolExecutor(container);
+  }
+  return toolExecutor;
+}
+
+/**
+ * SSE client tracking for device event broadcasting
+ */
+const sseClients = new Set<FastifyReply>();
+
+/**
+ * Broadcast device state change to all SSE clients
+ */
+function broadcastDeviceStateChange(deviceId: string, state: any): void {
+  const event = {
+    type: 'device-state',
+    deviceId,
+    timestamp: new Date().toISOString(),
+    state,
+  };
+
+  const message = `event: device-state\ndata: ${JSON.stringify(event)}\n\n`;
+
+  let broadcastCount = 0;
+  sseClients.forEach((client) => {
+    if (client.raw.writable) {
+      client.raw.write(message);
+      broadcastCount++;
+    }
+  });
+
+  logger.debug(`[SSE] Broadcast device-state to ${broadcastCount} clients`, {
+    deviceId,
+  });
+}
 
 /**
  * Create and configure Fastify server
@@ -158,10 +205,262 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
       endpoints: {
         customSkill: 'POST /alexa - Custom Skill (conversational AI)',
         smartHome: 'POST /alexa-smarthome - Smart Home Skill (device control)',
+        devices: 'GET /api/devices - List devices with filters',
+        deviceControl: 'POST /api/devices/:id/on|off - Control devices',
+        deviceStatus: 'GET /api/devices/:id/status - Get device status',
+        deviceEvents: 'GET /api/devices/events - SSE real-time updates',
         health: 'GET /health',
       },
       documentation: 'https://github.com/bobmatnyc/mcp-smarterthings',
     };
+  });
+
+  // ====================================================================
+  // Device API Routes (for Web UI)
+  // ====================================================================
+
+  /**
+   * GET /api/devices - List all devices with optional filters
+   *
+   * Query Parameters:
+   * - room: Filter by room name
+   * - capability: Filter by capability type
+   *
+   * Returns: DirectResult<UnifiedDevice[]>
+   */
+  server.get('/api/devices', async (request, reply) => {
+    const startTime = Date.now();
+    const { room, capability } = request.query as { room?: string; capability?: string };
+
+    try {
+      logger.debug('GET /api/devices', { room, capability });
+
+      const executor = getToolExecutor();
+      const result = await executor.listDevices({
+        roomName: room,
+        capability,
+      });
+
+      const duration = Date.now() - startTime;
+      logger.debug('Device list fetched', {
+        success: result.success,
+        count: result.success ? result.data.length : 0,
+        duration,
+      });
+
+      if (result.success) {
+        return result;
+      } else {
+        return reply.code(500).send(result);
+      }
+    } catch (error: unknown) {
+      const duration = Date.now() - startTime;
+      logger.error('Error fetching device list', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
+
+  /**
+   * POST /api/devices/:deviceId/on - Turn device on
+   */
+  server.post('/api/devices/:deviceId/on', async (request, reply) => {
+    const startTime = Date.now();
+    const { deviceId } = request.params as { deviceId: string };
+
+    try {
+      logger.debug('POST /api/devices/:deviceId/on', { deviceId });
+
+      const executor = getToolExecutor();
+      const result = await executor.turnOnDevice(deviceId as DeviceId);
+
+      const duration = Date.now() - startTime;
+
+      if (result.success) {
+        // Broadcast state change to SSE clients
+        broadcastDeviceStateChange(deviceId, { switch: 'on' });
+
+        logger.debug('Device turned on', { deviceId, duration });
+        return { success: true, data: null };
+      } else {
+        logger.error('Failed to turn on device', {
+          deviceId,
+          error: result.error.message,
+          duration,
+        });
+        return reply.code(500).send(result);
+      }
+    } catch (error: unknown) {
+      const duration = Date.now() - startTime;
+      logger.error('Error turning on device', {
+        deviceId,
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
+
+  /**
+   * POST /api/devices/:deviceId/off - Turn device off
+   */
+  server.post('/api/devices/:deviceId/off', async (request, reply) => {
+    const startTime = Date.now();
+    const { deviceId } = request.params as { deviceId: string };
+
+    try {
+      logger.debug('POST /api/devices/:deviceId/off', { deviceId });
+
+      const executor = getToolExecutor();
+      const result = await executor.turnOffDevice(deviceId as DeviceId);
+
+      const duration = Date.now() - startTime;
+
+      if (result.success) {
+        // Broadcast state change to SSE clients
+        broadcastDeviceStateChange(deviceId, { switch: 'off' });
+
+        logger.debug('Device turned off', { deviceId, duration });
+        return { success: true, data: null };
+      } else {
+        logger.error('Failed to turn off device', {
+          deviceId,
+          error: result.error.message,
+          duration,
+        });
+        return reply.code(500).send(result);
+      }
+    } catch (error: unknown) {
+      const duration = Date.now() - startTime;
+      logger.error('Error turning off device', {
+        deviceId,
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
+
+  /**
+   * GET /api/devices/:deviceId/status - Get device status
+   */
+  server.get('/api/devices/:deviceId/status', async (request, reply) => {
+    const startTime = Date.now();
+    const { deviceId } = request.params as { deviceId: string };
+
+    try {
+      logger.debug('GET /api/devices/:deviceId/status', { deviceId });
+
+      const executor = getToolExecutor();
+      const result = await executor.getDeviceStatus(deviceId as DeviceId);
+
+      const duration = Date.now() - startTime;
+
+      if (result.success) {
+        logger.debug('Device status fetched', { deviceId, duration });
+        return result;
+      } else {
+        logger.error('Failed to get device status', {
+          deviceId,
+          error: result.error.message,
+          duration,
+        });
+        return reply.code(404).send(result);
+      }
+    } catch (error: unknown) {
+      const duration = Date.now() - startTime;
+      logger.error('Error getting device status', {
+        deviceId,
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
+
+  /**
+   * GET /api/devices/events - SSE endpoint for real-time device updates
+   *
+   * Server-Sent Events (SSE) for broadcasting device state changes
+   * to connected web clients.
+   *
+   * Events:
+   * - connected: Initial connection acknowledgment
+   * - heartbeat: Periodic heartbeat (every 30s)
+   * - device-state: Device state change notification
+   * - device-online: Device online status change
+   */
+  server.get('/api/devices/events', async (request: FastifyRequest, reply: FastifyReply) => {
+    logger.info('[SSE] New client connection');
+
+    // Set SSE headers
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no', // Disable nginx buffering
+    });
+
+    // Add client to tracking set
+    sseClients.add(reply);
+
+    // Send initial connection event
+    const connectedEvent = {
+      timestamp: new Date().toISOString(),
+    };
+    reply.raw.write(`event: connected\ndata: ${JSON.stringify(connectedEvent)}\n\n`);
+
+    // Heartbeat interval (every 30 seconds)
+    const heartbeatInterval = setInterval(() => {
+      if (reply.raw.writable) {
+        const heartbeat = {
+          timestamp: new Date().toISOString(),
+          connectedClients: sseClients.size,
+        };
+        reply.raw.write(`event: heartbeat\ndata: ${JSON.stringify(heartbeat)}\n\n`);
+      } else {
+        clearInterval(heartbeatInterval);
+        sseClients.delete(reply);
+      }
+    }, 30000);
+
+    // Cleanup on disconnect
+    request.raw.on('close', () => {
+      logger.info('[SSE] Client disconnected');
+      clearInterval(heartbeatInterval);
+      sseClients.delete(reply);
+    });
+
+    // Keep connection alive
+    await new Promise(() => {
+      // Connection stays open until client disconnects
+    });
   });
 
   // Alexa Custom Skill endpoint (conversational AI with LLM)
