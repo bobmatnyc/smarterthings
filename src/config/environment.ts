@@ -5,7 +5,9 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 // Load environment variables
-dotenv.config();
+// Load .env first, then .env.local to override (dotenv doesn't load .env.local automatically)
+dotenv.config(); // Loads .env
+dotenv.config({ path: '.env.local', override: true }); // Loads .env.local and overrides .env values
 
 /**
  * Get package version from package.json (single source of truth).
