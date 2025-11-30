@@ -1,4 +1,4 @@
-# MCP SmarterThings
+# Smarter Things
 
 > **Unified Smart Home Control Platform**
 > A dual-mode server providing both Model Context Protocol (MCP) integration for AI assistants and Alexa Custom Skill support, with a powerful unified capability system for cross-platform device management.
@@ -10,9 +10,9 @@
 
 ---
 
-## 🎯 What is mcp-smarterthings?
+## 🎯 What is Smarter Things?
 
-**mcp-smarterthings** is a comprehensive smart home integration server that bridges AI assistants and voice assistants with your home automation devices. It provides:
+**Smarter Things** is a comprehensive smart home integration server that bridges AI assistants and voice assistants with your home automation devices. It provides:
 
 - 🤖 **MCP Server** for Claude AI and other LLM-based assistants
 - 🗣️ **Alexa Custom Skill** for natural language voice control
@@ -47,7 +47,7 @@
 
 ### 🔄 Unified Capability System
 
-The heart of mcp-smarterthings is a **platform-agnostic capability abstraction** that normalizes device control across multiple smart home platforms:
+The heart of Smarter Things is a **platform-agnostic capability abstraction** that normalizes device control across multiple smart home platforms:
 
 **Key Features:**
 - **31 Unified Capabilities** - 11 Control + 15 Sensor + 5 Composite capabilities
@@ -282,7 +282,7 @@ The server will start with the configured transport mode (stdio or http).
 
 ### Mode 1: MCP Server for Claude Desktop
 
-Configure Claude Desktop to use mcp-smarterthings as an MCP server:
+Configure Claude Desktop to use Smarter Things as an MCP server:
 
 **Add to your Claude Desktop config** (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
@@ -718,7 +718,7 @@ For a complete index, see [docs/README.md](docs/README.md).
 
 ## 🎯 Key Differentiators
 
-### What Makes mcp-smarterthings Unique?
+### What Makes Smarter Things Unique?
 
 1. **Dual-Mode Operation**
    - Same codebase serves both MCP protocol and Alexa Custom Skill
@@ -791,7 +791,7 @@ pnpm format:check
 ### Project Structure
 
 ```
-mcp-smarterthings/
+Smarter Things/
 ├── src/
 │   ├── index.ts                    # Main MCP server entry point
 │   ├── cli/

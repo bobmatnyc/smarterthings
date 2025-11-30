@@ -97,7 +97,7 @@ function parseCliArgs(): CliArgs {
  */
 function displayHelp(): void {
   const help = `
-${chalk.bold.cyan('SmarterThings')} ${chalk.gray('- The LLM Controller for SmartThings')}
+${chalk.bold.cyan('Smarter Things')} ${chalk.gray('- The LLM Controller for SmartThings')}
 ${chalk.gray('Natural language interface powered by AI')}
 
 ${chalk.bold('Usage:')}

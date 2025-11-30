@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * Test SmarterThings Identity
+ * Test Smarter Things Identity
  * Ask the LLM who it is to verify branding
  */
 
@@ -22,7 +22,7 @@ async function testIdentity(): Promise<void> {
     process.exit(1);
   }
 
-  console.log('🤖 Testing SmarterThings Identity...\n');
+  console.log('🤖 Testing Smarter Things Identity...\n');
 
   try {
     const mcpClient = new McpClient();

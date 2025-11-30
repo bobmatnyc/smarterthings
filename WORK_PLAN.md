@@ -1,4 +1,4 @@
-# MCP SmarterThings - Work Plan & Roadmap
+# Smarter Things - Work Plan & Roadmap
 
 **Generated**: 2025-11-28
 **Project**: [MCP Smarterthings](https://linear.app/1m-hyperdev/project/mcp-smarterthings-89098cb0dd3c/issues)

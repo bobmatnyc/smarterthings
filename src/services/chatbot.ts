@@ -264,8 +264,8 @@ export class ChatbotService implements IChatbotService {
    */
   private displayWelcome(): void {
     const welcome = this.useColor
-      ? chalk.bold.cyan('\n🤖 SmarterThings\n')
-      : '\n🤖 SmarterThings\n';
+      ? chalk.bold.cyan('\n🤖 Smarter Things\n')
+      : '\n🤖 Smarter Things\n';
 
     const subtitle = this.useColor
       ? chalk.gray('Your AI-powered SmartThings controller\n')

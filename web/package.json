@@ -19,6 +19,8 @@
 		"@sveltejs/kit": "^2.48.5",
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
 		"@tailwindcss/postcss": "^4.1.17",
+		"@types/dompurify": "^3.2.0",
+		"@types/marked": "^6.0.0",
 		"autoprefixer": "^10.4.22",
 		"postcss": "^8.5.6",
 		"svelte": "^5.43.8",
@@ -30,6 +32,8 @@
 	"dependencies": {
 		"@mcp-smartthings/shared-types": "workspace:*",
 		"clsx": "^2.1.1",
+		"dompurify": "^3.3.0",
+		"marked": "^17.0.1",
 		"tailwind-merge": "^3.4.0"
 	}
 }

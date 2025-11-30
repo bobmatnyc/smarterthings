@@ -6,12 +6,12 @@
 <div class="container h-full mx-auto flex justify-center items-center">
 	<div class="card max-w-2xl p-8">
 		<header class="card-header">
-			<h1 class="h1">SmartThings Control Panel</h1>
+			<h1 class="h1">Smarter Things</h1>
 		</header>
 
 		<section class="p-4">
 			<p class="mb-4">
-				Welcome to your SmartThings control panel. Manage devices, scenes, and automations
+				Welcome to Smarter Things. Manage devices, scenes, and automations
 				from this elegant interface.
 			</p>
 

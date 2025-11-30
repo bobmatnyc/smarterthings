@@ -20,8 +20,8 @@
 </script>
 
 <svelte:head>
-	<title>Devices - MCP SmartThings</title>
-	<meta name="description" content="View and control your SmartThings devices" />
+	<title>Devices - Smarter Things</title>
+	<meta name="description" content="View and control your smart home devices" />
 </svelte:head>
 
 <DeviceListContainer />

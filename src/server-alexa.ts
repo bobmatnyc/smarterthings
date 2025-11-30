@@ -63,7 +63,11 @@ import { handleCustomSkillRequest } from './alexa/custom-skill.js';
 import logger from './utils/logger.js';
 import { ToolExecutor } from './direct/ToolExecutor.js';
 import { ServiceContainer } from './services/ServiceContainer.js';
+import { smartThingsService } from './smartthings/client.js';
 import type { DeviceId } from './types/smartthings.js';
+import { McpClient } from './mcp/client.js';
+import { LlmService } from './services/llm.js';
+import { ChatOrchestrator } from './services/chat-orchestrator.js';
 
 /**
  * Server port (configurable via environment)
@@ -78,16 +82,60 @@ const PORT = process.env['ALEXA_SERVER_PORT']
 const HOST = process.env['ALEXA_SERVER_HOST'] || '0.0.0.0';
 
 /**
+ * ServiceContainer instance for device operations
+ * Initialized once with the singleton SmartThingsService
+ */
+const serviceContainer = new ServiceContainer(smartThingsService);
+
+/**
  * Singleton ToolExecutor instance for device operations
  */
 let toolExecutor: ToolExecutor | null = null;
 
 function getToolExecutor(): ToolExecutor {
   if (!toolExecutor) {
-    const container = ServiceContainer.getInstance();
-    toolExecutor = new ToolExecutor(container);
+    toolExecutor = new ToolExecutor(serviceContainer);
   }
   return toolExecutor;
+}
+
+/**
+ * Singleton ChatOrchestrator instance for chat API
+ */
+let chatOrchestrator: ChatOrchestrator | null = null;
+
+/**
+ * Get or create ChatOrchestrator instance.
+ *
+ * Lazily initializes MCP client, LLM service, and orchestrator.
+ * Orchestrator initialization is async, so must be awaited on first use.
+ *
+ * @returns Promise resolving to initialized ChatOrchestrator
+ */
+async function getChatOrchestrator(): Promise<ChatOrchestrator> {
+  if (!chatOrchestrator) {
+    // Validate environment variables
+    const apiKey = process.env['OPENROUTER_API_KEY'];
+    if (!apiKey) {
+      throw new Error('OPENROUTER_API_KEY environment variable is required for chat functionality');
+    }
+
+    // Create MCP client
+    const mcpClient = new McpClient();
+
+    // Create LLM service
+    const llmService = new LlmService({ apiKey });
+
+    // Create orchestrator
+    chatOrchestrator = new ChatOrchestrator(mcpClient, llmService);
+
+    // Initialize orchestrator (spawns MCP server, fetches tools)
+    await chatOrchestrator.initialize();
+
+    logger.info('Chat orchestrator initialized successfully');
+  }
+
+  return chatOrchestrator;
 }
 
 /**
@@ -209,6 +257,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
         deviceControl: 'POST /api/devices/:id/on|off - Control devices',
         deviceStatus: 'GET /api/devices/:id/status - Get device status',
         deviceEvents: 'GET /api/devices/events - SSE real-time updates',
+        chat: 'POST /api/chat - Chat with AI assistant',
         health: 'GET /health',
       },
       documentation: 'https://github.com/bobmatnyc/mcp-smarterthings',
@@ -290,14 +339,15 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 
         logger.debug('Device turned on', { deviceId, duration });
         return { success: true, data: null };
-      } else {
-        logger.error('Failed to turn on device', {
-          deviceId,
-          error: result.error.message,
-          duration,
-        });
-        return reply.code(500).send(result);
       }
+
+      // Error case
+      logger.error('Failed to turn on device', {
+        deviceId,
+        error: result.error.message,
+        duration,
+      });
+      return reply.code(500).send(result);
     } catch (error: unknown) {
       const duration = Date.now() - startTime;
       logger.error('Error turning on device', {
@@ -336,14 +386,15 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 
         logger.debug('Device turned off', { deviceId, duration });
         return { success: true, data: null };
-      } else {
-        logger.error('Failed to turn off device', {
-          deviceId,
-          error: result.error.message,
-          duration,
-        });
-        return reply.code(500).send(result);
       }
+
+      // Error case
+      logger.error('Failed to turn off device', {
+        deviceId,
+        error: result.error.message,
+        duration,
+      });
+      return reply.code(500).send(result);
     } catch (error: unknown) {
       const duration = Date.now() - startTime;
       logger.error('Error turning off device', {
@@ -379,14 +430,15 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
       if (result.success) {
         logger.debug('Device status fetched', { deviceId, duration });
         return result;
-      } else {
-        logger.error('Failed to get device status', {
-          deviceId,
-          error: result.error.message,
-          duration,
-        });
-        return reply.code(404).send(result);
       }
+
+      // Error case
+      logger.error('Failed to get device status', {
+        deviceId,
+        error: result.error.message,
+        duration,
+      });
+      return reply.code(404).send(result);
     } catch (error: unknown) {
       const duration = Date.now() - startTime;
       logger.error('Error getting device status', {
@@ -462,6 +514,128 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
       // Connection stays open until client disconnects
     });
   });
+
+  /**
+   * POST /api/chat - Chat endpoint for conversational AI
+   *
+   * Integrates with ChatOrchestrator for natural language device control.
+   *
+   * Request Body:
+   * - message: string (required) - User message
+   * - mode: 'normal' | 'troubleshooting' (optional) - Chat mode
+   *
+   * Response (DirectResult pattern):
+   * - success: true/false
+   * - data: { message: string, mode: string } (on success)
+   * - error: { code: string, message: string } (on failure)
+   *
+   * Mode Switching Commands:
+   * - /troubleshoot - Switch to troubleshooting mode
+   * - /normal - Switch to normal mode
+   */
+  server.post('/api/chat', async (request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      const { message, mode } = request.body as {
+        message: string;
+        mode?: 'normal' | 'troubleshooting'
+      };
+
+      // Validate message
+      if (!message || typeof message !== 'string') {
+        const result = {
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Message is required and must be a string'
+          }
+        };
+        return reply.code(400).send(result);
+      }
+
+      logger.debug('POST /api/chat', { message, mode });
+
+      // Get or initialize orchestrator
+      const orchestrator = await getChatOrchestrator();
+
+      // Handle mode switching commands
+      if (message.trim().toLowerCase() === '/troubleshoot') {
+        await orchestrator.setMode('troubleshooting' as any);
+        const result = {
+          success: true,
+          data: {
+            message: 'Switched to troubleshooting mode. I\'ll help diagnose issues systematically using event history and web search.',
+            mode: 'troubleshooting'
+          }
+        };
+
+        const duration = Date.now() - startTime;
+        logger.debug('Chat mode switched to troubleshooting', { duration });
+
+        return reply.send(result);
+      }
+
+      if (message.trim().toLowerCase() === '/normal') {
+        await orchestrator.setMode('normal' as any);
+        const result = {
+          success: true,
+          data: {
+            message: 'Switched to normal mode.',
+            mode: 'normal'
+          }
+        };
+
+        const duration = Date.now() - startTime;
+        logger.debug('Chat mode switched to normal', { duration });
+
+        return reply.send(result);
+      }
+
+      // Process message through orchestrator
+      const response = await orchestrator.processMessage(message);
+      const currentMode = orchestrator.getMode();
+
+      const result = {
+        success: true,
+        data: {
+          message: response,
+          mode: currentMode
+        }
+      };
+
+      const duration = Date.now() - startTime;
+      logger.debug('Chat message processed', {
+        messageLength: message.length,
+        responseLength: response.length,
+        mode: currentMode,
+        duration
+      });
+
+      return reply.send(result);
+
+    } catch (error: unknown) {
+      const duration = Date.now() - startTime;
+      logger.error('Error processing chat message', {
+        error: error instanceof Error ? error.message : String(error),
+        duration
+      });
+
+      const result = {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
+
+      return reply.code(500).send(result);
+    }
+  });
+
+  // ====================================================================
+  // Alexa API Routes
+  // ====================================================================
 
   // Alexa Custom Skill endpoint (conversational AI with LLM)
   server.post(
@@ -582,7 +756,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
     }
   );
 
-  logger.info('Routes registered (/alexa, /alexa-smarthome, /health, /)');
+  logger.info('Routes registered (/alexa, /alexa-smarthome, /api/chat, /api/devices/*, /health, /)');
 }
 
 /**
