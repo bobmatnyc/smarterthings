@@ -211,7 +211,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) specifica
 ### Commit Message Format
 
 ```
-<type>(<scope>): <subject>
+<type>(<scope>): <subject> (<ticket-id>)
 
 <body>
 
@@ -231,13 +231,46 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) specifica
 - `ci`: CI/CD changes
 - `chore`: Other changes (dependencies, etc.)
 
+### Linear Ticket References
+
+**REQUIRED** ticket references in commit messages:
+
+- ✅ **Feature commits** (`feat:`) - MUST include ticket ID
+- ✅ **Bug fixes** (`fix:`) - MUST include ticket ID
+- ✅ **Feature documentation** (`docs:`) - MUST include ticket ID
+
+**OPTIONAL** ticket references:
+
+- ⚪ Chore commits - infrastructure, dependencies (use judgment)
+- ⚪ Refactoring - if not tracked separately
+- ⚪ Test commits - if testing existing features
+
+**NOT REQUIRED**:
+
+- ❌ Release commits
+- ❌ Merge commits
+- ❌ Version bumps
+- ❌ Minor typo fixes
+
 ### Examples
 
 ```bash
-feat(devices): add support for temperature sensors
-fix(auth): resolve token refresh issue
-docs(readme): update installation instructions
-refactor(api): simplify error handling
+feat(devices): add support for temperature sensors (1M-425)
+fix(auth): resolve token refresh issue (1M-432)
+docs(readme): update installation instructions (1M-428)
+refactor(api): simplify error handling (1M-415)
+```
+
+**With body and footer**:
+```bash
+feat(mcp): implement automation script building tools (1M-411)
+
+Add new MCP tools for building automation scripts from device state:
+- build_automation_script: Generate SmartThings automations
+- Supports time-based and device-based triggers
+- Includes validation and preview modes
+
+Closes 1M-411
 ```
 
 ### Breaking Changes
@@ -245,7 +278,7 @@ refactor(api): simplify error handling
 For breaking changes, add `!` after the type and include `BREAKING CHANGE:` in the footer:
 
 ```bash
-feat(api)!: redesign device control interface
+feat(api)!: redesign device control interface (1M-XXX)
 
 BREAKING CHANGE: The device control API has been redesigned.
 Previous method names have been deprecated.
@@ -336,6 +369,52 @@ Before creating a release:
 - [ ] CHANGELOG.md is accurate (generated automatically)
 - [ ] Version number follows semver
 - [ ] Git working directory is clean
+
+## Linear Ticket Hygiene
+
+We maintain high standards for Linear ticket tracking to ensure project visibility and prevent tracking gaps.
+
+### Quick Reference
+
+- **Required**: All feature/bug work must have Linear tickets
+- **Commit Linking**: Include ticket ID in feature/fix commits (e.g., `feat: add feature (1M-123)`)
+- **CHANGELOG**: Update for all releases with ticket links
+- **Hygiene Checks**: Run `pnpm run hygiene:check` weekly
+
+### Hygiene Standards
+
+**Current Hygiene Score**: 7.5/10 (Target: 9.0/10)
+
+**Ticket Requirements**:
+- Clear, action-oriented titles
+- Comprehensive descriptions with acceptance criteria
+- Priority assignment (Critical, High, Medium, Low)
+- Epic assignment for all open tickets
+- Assignee when moving to "In Progress"
+
+**Git Commit Standards**:
+- **MUST** link feature/bug commits to tickets: `feat: add feature (1M-123)`
+- **OPTIONAL** for chore/refactor commits
+- **NOT REQUIRED** for release/merge/version commits
+
+**Weekly Hygiene Checks**:
+```bash
+# Run automated hygiene analysis
+pnpm run hygiene:check
+
+# Or use the script directly
+npx tsx scripts/check-linear-hygiene.ts
+```
+
+### Detailed Guidelines
+
+For comprehensive Linear hygiene guidelines, see:
+- [.github/LINEAR_HYGIENE.md](.github/LINEAR_HYGIENE.md) - Complete hygiene guide
+- [Research Document](docs/research/linear-tracking-hygiene-2025-11-30.md) - Hygiene analysis
+
+**Related Tickets**:
+- [1M-370](https://linear.app/1m-hyperdev/issue/1M-370) - Review project board and establish hygiene
+- [1M-429](https://linear.app/1m-hyperdev/issue/1M-429) - Improve hygiene process
 
 ## Testing
 
