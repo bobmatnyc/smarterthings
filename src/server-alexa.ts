@@ -64,11 +64,12 @@ import logger from './utils/logger.js';
 import { ToolExecutor } from './direct/ToolExecutor.js';
 import { ServiceContainer } from './services/ServiceContainer.js';
 import { smartThingsService } from './smartthings/client.js';
-import type { DeviceId } from './types/smartthings.js';
+import type { DeviceId, SceneId } from './types/smartthings.js';
 import { McpClient } from './mcp/client.js';
 import { LlmService } from './services/llm.js';
 import { ChatOrchestrator } from './services/chat-orchestrator.js';
 import { registerOAuthRoutes } from './routes/oauth.js';
+import { SmartThingsAdapter } from './platforms/smartthings/SmartThingsAdapter.js';
 
 /**
  * Server port (configurable via environment)
@@ -83,10 +84,18 @@ const PORT = process.env['ALEXA_SERVER_PORT']
 const HOST = process.env['ALEXA_SERVER_HOST'] || '0.0.0.0';
 
 /**
- * ServiceContainer instance for device operations
- * Initialized once with the singleton SmartThingsService
+ * SmartThingsAdapter instance for automation operations
+ * Initialized with token from environment
  */
-const serviceContainer = new ServiceContainer(smartThingsService);
+const smartThingsAdapter = new SmartThingsAdapter({
+  token: environment.SMARTTHINGS_PAT,
+});
+
+/**
+ * ServiceContainer instance for device operations
+ * Initialized with SmartThingsService and SmartThingsAdapter
+ */
+const serviceContainer = new ServiceContainer(smartThingsService, smartThingsAdapter);
 
 /**
  * Singleton ToolExecutor instance for device operations
@@ -255,9 +264,14 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
         customSkill: 'POST /alexa - Custom Skill (conversational AI)',
         smartHome: 'POST /alexa-smarthome - Smart Home Skill (device control)',
         devices: 'GET /api/devices - List devices with filters',
+        rooms: 'GET /api/rooms - List rooms with device counts',
         deviceControl: 'POST /api/devices/:id/on|off - Control devices',
         deviceStatus: 'GET /api/devices/:id/status - Get device status',
         deviceEvents: 'GET /api/devices/events - SSE real-time updates',
+        automations: 'GET /api/automations - List scenes (manually run routines)',
+        executeAutomation: 'POST /api/automations/:id/execute - Execute scene',
+        rules: 'GET /api/rules - List rules (IF/THEN automations)',
+        executeRule: 'POST /api/rules/:id/execute - Execute rule',
         chat: 'POST /api/chat - Chat with AI assistant',
         health: 'GET /health',
       },
@@ -340,15 +354,15 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 
         logger.debug('Device turned on', { deviceId, duration });
         return { success: true, data: null };
+      } else {
+        // Error case
+        logger.error('Failed to turn on device', {
+          deviceId,
+          error: result.error.message,
+          duration,
+        });
+        return reply.code(500).send(result);
       }
-
-      // Error case
-      logger.error('Failed to turn on device', {
-        deviceId,
-        error: result.error.message,
-        duration,
-      });
-      return reply.code(500).send(result);
     } catch (error: unknown) {
       const duration = Date.now() - startTime;
       logger.error('Error turning on device', {
@@ -387,15 +401,15 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 
         logger.debug('Device turned off', { deviceId, duration });
         return { success: true, data: null };
+      } else {
+        // Error case
+        logger.error('Failed to turn off device', {
+          deviceId,
+          error: result.error.message,
+          duration,
+        });
+        return reply.code(500).send(result);
       }
-
-      // Error case
-      logger.error('Failed to turn off device', {
-        deviceId,
-        error: result.error.message,
-        duration,
-      });
-      return reply.code(500).send(result);
     } catch (error: unknown) {
       const duration = Date.now() - startTime;
       logger.error('Error turning off device', {
@@ -431,15 +445,15 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
       if (result.success) {
         logger.debug('Device status fetched', { deviceId, duration });
         return result;
+      } else {
+        // Error case
+        logger.error('Failed to get device status', {
+          deviceId,
+          error: result.error.message,
+          duration,
+        });
+        return reply.code(404).send(result);
       }
-
-      // Error case
-      logger.error('Failed to get device status', {
-        deviceId,
-        error: result.error.message,
-        duration,
-      });
-      return reply.code(404).send(result);
     } catch (error: unknown) {
       const duration = Date.now() - startTime;
       logger.error('Error getting device status', {
@@ -453,6 +467,525 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
           code: 'INTERNAL_ERROR',
           message: error instanceof Error ? error.message : 'Unknown error',
         },
+      });
+    }
+  });
+
+  /**
+   * GET /api/rooms - List all rooms with device counts
+   *
+   * Returns list of rooms from SmartThings with device count for each room.
+   *
+   * Returns: DirectResult<{ count: number; rooms: RoomInfo[] }>
+   */
+  server.get('/api/rooms', async (_request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      logger.debug('GET /api/rooms');
+
+      const executor = getToolExecutor();
+      const roomsResult = await executor.listRooms();
+
+      if (!roomsResult.success) {
+        logger.error('Failed to list rooms', {
+          error: roomsResult.error.message,
+        });
+        return reply.code(500).send(roomsResult);
+      }
+
+      // Get all devices to calculate device counts per room
+      const devicesResult = await executor.listDevices({});
+
+      if (!devicesResult.success) {
+        logger.error('Failed to list devices for room counts', {
+          error: devicesResult.error.message,
+        });
+        // Continue with empty device list rather than failing completely
+      }
+
+      const rooms = roomsResult.data?.rooms || [];
+      const devices = devicesResult.success && devicesResult.data?.devices
+        ? devicesResult.data.devices
+        : [];
+
+      // Calculate device count for each room
+      const roomDeviceCounts = new Map<string, number>();
+      devices.forEach((device: any) => {
+        const roomName = device.roomName || device.room;
+        if (roomName) {
+          roomDeviceCounts.set(roomName, (roomDeviceCounts.get(roomName) || 0) + 1);
+        }
+      });
+
+      // Add device counts to rooms
+      const roomsWithCounts = rooms.map((room: any) => ({
+        roomId: room.roomId,
+        name: room.name,
+        locationId: room.locationId,
+        deviceCount: roomDeviceCounts.get(room.name) || 0,
+      }));
+
+      const duration = Date.now() - startTime;
+      logger.debug('Rooms fetched', { count: roomsWithCounts.length, duration });
+
+      return {
+        success: true,
+        data: {
+          count: roomsWithCounts.length,
+          rooms: roomsWithCounts,
+        },
+      };
+    } catch (error: unknown) {
+      const duration = Date.now() - startTime;
+      logger.error('Error getting rooms', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
+
+  /**
+   * GET /api/automations - List all automations (SmartThings Scenes)
+   *
+   * Returns all scenes (manually run routines) from SmartThings for the default location.
+   * Note: Scenes are what appear as "Manually run routines" in the SmartThings app.
+   *
+   * Returns: DirectResult<SceneInfo[]>
+   */
+  server.get('/api/automations', async (_request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      logger.debug('GET /api/automations');
+
+      const executor = getToolExecutor();
+      // Fetch scenes (manually run routines)
+      const result = await executor.listScenes();
+
+      if (!result.success) {
+        logger.error('Failed to fetch scenes', {
+          error: result.error.message,
+        });
+        return reply.code(500).send(result);
+      }
+
+      const scenes = result.data || [];
+      const duration = Date.now() - startTime;
+      logger.debug('Scenes fetched', { count: scenes.length, duration });
+
+      return {
+        success: true,
+        data: scenes,
+      };
+    } catch (error: unknown) {
+      const duration = Date.now() - startTime;
+      logger.error('Error fetching scenes', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
+
+  /**
+   * POST /api/automations/:id/execute - Execute a scene
+   *
+   * Executes a scene (manually run routine) immediately.
+   * Note: Scenes cannot be toggled enabled/disabled - they're always manually triggered.
+   *
+   * Returns: DirectResult<void>
+   */
+  server.post('/api/automations/:id/execute', async (request, reply) => {
+    const startTime = Date.now();
+    const { id } = request.params as { id: string };
+
+    try {
+      logger.info('Executing scene', { sceneId: id });
+
+      const executor = getToolExecutor();
+      const result = await executor.executeScene(id as SceneId);
+
+      if (!result.success) {
+        const duration = Date.now() - startTime;
+        logger.error('Failed to execute scene', { sceneId: id, error: result.error, duration });
+        return reply.code(500).send({
+          success: false,
+          error: result.error,
+        });
+      }
+
+      const duration = Date.now() - startTime;
+      logger.info('Scene executed successfully', { sceneId: id, duration });
+
+      return {
+        success: true,
+        data: result.data,
+      };
+    } catch (error: unknown) {
+      const duration = Date.now() - startTime;
+      logger.error('Error executing scene', {
+        sceneId: id,
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
+
+  /**
+   * GET /api/rules - List all rules
+   *
+   * Returns all SmartThings Rules (IF/THEN automations) for the default location.
+   * Rules are modern automations with trigger conditions and actions.
+   *
+   * Returns: DirectResult<Rule[]>
+   */
+  server.get('/api/rules', async (request, reply) => {
+    try {
+      logger.info('Fetching rules');
+
+      // Get default location
+      const executor = getToolExecutor();
+      const locationsResult = await executor.listLocations();
+      if (
+        !locationsResult.success ||
+        !locationsResult.data ||
+        !locationsResult.data.locations ||
+        locationsResult.data.locations.length === 0
+      ) {
+        return reply.status(500).send({
+          success: false,
+          error: 'No locations found',
+        });
+      }
+
+      const locationId = locationsResult.data.locations[0].locationId;
+      const result = await executor.listRules({ locationId });
+
+      if (!result.success) {
+        logger.error('Failed to fetch rules', { error: result.error });
+        return reply.status(500).send({
+          success: false,
+          error: result.error || 'Failed to fetch rules',
+        });
+      }
+
+      const rules = result.data || [];
+      logger.info('Rules fetched', { count: rules.length });
+
+      return reply.send({
+        success: true,
+        data: {
+          count: rules.length,
+          rules: rules,
+        },
+      });
+    } catch (error) {
+      logger.error('Error fetching rules', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        errorType: error?.constructor?.name,
+      });
+      return reply.status(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+      });
+    }
+  });
+
+  /**
+   * POST /api/rules/:id/execute - Execute a rule
+   *
+   * Manually executes a rule, bypassing trigger conditions.
+   * Useful for testing rules or manual execution.
+   *
+   * Returns: DirectResult<any>
+   */
+  server.post('/api/rules/:id/execute', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      logger.info('Executing rule', { ruleId: id });
+
+      const executor = getToolExecutor();
+      const result = await executor.executeRule({ ruleId: id });
+
+      if (!result.success) {
+        logger.error('Failed to execute rule', { ruleId: id, error: result.error });
+        return reply.status(500).send({
+          success: false,
+          error: result.error || 'Failed to execute rule',
+        });
+      }
+
+      logger.info('Rule executed successfully', { ruleId: id });
+
+      return reply.send({
+        success: true,
+        data: result.data,
+      });
+    } catch (error) {
+      logger.error('Error executing rule', { error });
+      return reply.status(500).send({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  });
+
+  /**
+   * PATCH /api/rules/:id - Update a rule (enable/disable)
+   *
+   * Update rule properties, primarily for enabling/disabling rules.
+   *
+   * Request body: { enabled: boolean }
+   * Returns: DirectResult<any>
+   */
+  server.patch('/api/rules/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const { enabled } = request.body as { enabled: boolean };
+      logger.info('Updating rule', { ruleId: id, enabled });
+
+      const executor = getToolExecutor();
+
+      // Get location
+      const locationsResult = await executor.listLocations();
+      if (!locationsResult.success || !locationsResult.data?.locations?.length) {
+        return reply.status(500).send({
+          success: false,
+          error: 'No locations found',
+        });
+      }
+
+      const locationId = locationsResult.data.locations[0].locationId;
+
+      // Get current rule
+      const rulesResult = await executor.listRules({ locationId });
+      if (!rulesResult.success || !rulesResult.data) {
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to fetch rules',
+        });
+      }
+
+      const rule = rulesResult.data.find((r: any) => r.id === id);
+      if (!rule) {
+        return reply.status(404).send({
+          success: false,
+          error: 'Rule not found',
+        });
+      }
+
+      // Update via AutomationService
+      const automationService = executor['serviceContainer'].getAutomationService();
+      const updatedRule = await automationService.updateRule(id, locationId, {
+        ...rule,
+        status: enabled ? 'Enabled' : 'Disabled',
+      });
+
+      logger.info('Rule updated successfully', { ruleId: id, enabled });
+
+      return reply.send({
+        success: true,
+        data: updatedRule,
+      });
+    } catch (error) {
+      logger.error('Error updating rule', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return reply.status(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+      });
+    }
+  });
+
+  /**
+   * DELETE /api/rules/:id - Delete a rule
+   *
+   * Permanently deletes a rule from the system.
+   *
+   * Returns: 204 No Content on success
+   */
+  server.delete('/api/rules/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+
+      logger.info(`[API] DELETE /api/rules/${id} - Deleting rule`);
+
+      // Validate rule ID format (UUID)
+      if (!id || id.length < 10) {
+        logger.warn(`[API] Invalid rule ID format: ${id}`);
+        return reply.status(400).send({
+          error: 'Bad Request',
+          message: 'Invalid rule ID format',
+          statusCode: 400,
+        });
+      }
+
+      // Get executor to access location
+      const executor = getToolExecutor();
+
+      // Get location
+      const locationsResult = await executor.listLocations();
+      if (!locationsResult.success || !locationsResult.data?.locations?.length) {
+        logger.error('[API] No locations found');
+        return reply.status(500).send({
+          error: 'Internal Server Error',
+          message: 'No locations found',
+          statusCode: 500,
+        });
+      }
+
+      const locationId = locationsResult.data.locations[0].locationId;
+
+      // Get automation service
+      const automationService = executor['serviceContainer'].getAutomationService();
+
+      // Delete rule using service layer
+      await automationService.deleteRule(id, locationId);
+
+      logger.info(`[API] Rule ${id} deleted successfully`);
+
+      // Return 204 No Content on success (REST best practice for DELETE)
+      return reply.status(204).send();
+
+    } catch (error) {
+      logger.error('[API] Error deleting rule:', error);
+
+      // Handle specific error cases
+      if (error instanceof Error) {
+        if (error.message.includes('not found') || error.message.includes('404')) {
+          return reply.status(404).send({
+            error: 'Not Found',
+            message: `Rule not found: ${(request.params as { id: string }).id}`,
+            statusCode: 404,
+          });
+        }
+
+        if (error.message.includes('unauthorized') || error.message.includes('403')) {
+          return reply.status(403).send({
+            error: 'Forbidden',
+            message: 'Not authorized to delete this rule',
+            statusCode: 403,
+          });
+        }
+      }
+
+      // Generic error
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: error instanceof Error ? error.message : 'Failed to delete rule',
+        statusCode: 500,
+      });
+    }
+  });
+
+  /**
+   * POST /api/scenes/:id/execute - Execute a scene
+   *
+   * Manually executes a scene, activating all configured device states.
+   *
+   * Returns: DirectResult<void>
+   */
+  server.post('/api/scenes/:id/execute', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      logger.info('Executing scene', { sceneId: id });
+
+      const executor = getToolExecutor();
+      const result = await executor.executeScene(id as any); // SceneId branded type
+
+      if (!result.success) {
+        logger.error('Failed to execute scene', { sceneId: id, error: result.error });
+        return reply.status(500).send({
+          success: false,
+          error: result.error || 'Failed to execute scene',
+        });
+      }
+
+      logger.info('Scene executed successfully', { sceneId: id });
+
+      return reply.send({
+        success: true,
+        data: { sceneId: id, executedAt: new Date().toISOString() },
+      });
+    } catch (error) {
+      logger.error('Error executing scene', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return reply.status(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+      });
+    }
+  });
+
+  /**
+   * GET /api/installedapps - List installed SmartApps
+   *
+   * Returns list of installed SmartApps (legacy apps) for the default location.
+   * These are read-only views of installed apps.
+   *
+   * Returns: { success: boolean, data: { count: number, installedApps: any[] } }
+   */
+  server.get('/api/installedapps', async (request, reply) => {
+    try {
+      logger.info('Fetching installed apps');
+
+      // Get default location
+      const executor = getToolExecutor();
+      const locationsResult = await executor.listLocations();
+      if (!locationsResult.success || !locationsResult.data?.locations?.length) {
+        return reply.status(500).send({
+          success: false,
+          error: 'No locations found',
+        });
+      }
+
+      const locationId = locationsResult.data.locations[0].locationId;
+
+      // Get SmartThingsService via service container
+      const smartThingsService = executor['serviceContainer']['smartThingsService'];
+      const installedApps = await smartThingsService.listInstalledApps(locationId);
+
+      logger.info('Installed apps fetched', { count: installedApps.length });
+
+      return reply.send({
+        success: true,
+        data: {
+          count: installedApps.length,
+          installedApps: installedApps,
+        },
+      });
+    } catch (error) {
+      logger.error('Error fetching installed apps', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      return reply.status(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
       });
     }
   });
@@ -769,7 +1302,13 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
     });
   }
 
-  logger.info('Routes registered (/alexa, /alexa-smarthome, /api/chat, /api/devices/*, /health, /, /auth/smartthings/*)');
+  logger.info('API Routes registered:');
+  logger.info('  GET    /api/rules');
+  logger.info('  GET    /api/rules/:id');
+  logger.info('  POST   /api/rules/:id/execute');
+  logger.info('  PATCH  /api/rules/:id');
+  logger.info('  DELETE /api/rules/:id');
+  logger.info('Other routes: /alexa, /alexa-smarthome, /api/chat, /api/devices/*, /api/automations, /health, /, /auth/smartthings/*');
 }
 
 /**
@@ -838,6 +1377,11 @@ export async function startAlexaServer(): Promise<FastifyInstance> {
   });
 
   try {
+    // Initialize SmartThings adapter before server starts
+    logger.info('Initializing SmartThings adapter');
+    await smartThingsAdapter.initialize();
+    logger.info('SmartThings adapter initialized successfully');
+
     // Create server
     const server = createFastifyServer();
 
