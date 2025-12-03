@@ -96,11 +96,33 @@
 
 	/**
 	 * Set brightness via API
-	 * TODO: Implement setLevel API endpoint
 	 */
 	async function setBrightness(level: number) {
-		console.log('Set brightness to', level);
-		// API call will be implemented when setLevel endpoint is added
+		if (isNaN(level) || level < 0 || level > 100) {
+			console.error('[DimmerControl] Invalid brightness level:', level);
+			return;
+		}
+
+		const newLevel = Math.round(level);
+		const previousLevel = brightness;
+
+		try {
+			// Optimistically update UI
+			brightness = newLevel;
+
+			// Call API
+			await apiClient.setDeviceLevel(device.platformDeviceId as any, newLevel);
+
+			console.log(`[DimmerControl] Set ${device.name} brightness to ${newLevel}%`);
+		} catch (error) {
+			console.error(`[DimmerControl] Failed to set brightness:`, error);
+
+			// Revert UI on error
+			brightness = previousLevel;
+
+			// Show error message to user (basic alert for now)
+			alert(`Failed to set brightness: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		}
 	}
 </script>
 

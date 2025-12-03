@@ -472,6 +472,119 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
   });
 
   /**
+   * PUT /api/devices/:deviceId/level - Set device brightness level
+   *
+   * Sets the brightness level for dimmable devices (0-100%).
+   * Requires switchLevel capability on the device.
+   *
+   * Request Body: { level: number } (0-100)
+   * Returns: DirectResult<void>
+   */
+  server.put('/api/devices/:deviceId/level', async (request, reply) => {
+    const startTime = Date.now();
+    const { deviceId } = request.params as { deviceId: string };
+    const { level } = request.body as { level: number };
+
+    try {
+      logger.info(`[API] PUT /api/devices/${deviceId}/level - Setting level to ${level}`);
+
+      // Validate request
+      if (!deviceId || deviceId.length < 10) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: 'BAD_REQUEST',
+            message: 'Invalid device ID format',
+          },
+        });
+      }
+
+      if (typeof level !== 'number' || level < 0 || level > 100) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: 'BAD_REQUEST',
+            message: 'Level must be a number between 0 and 100',
+          },
+        });
+      }
+
+      // Get executor and set device level
+      const executor = getToolExecutor();
+      const result = await executor.setDeviceLevel(deviceId as DeviceId, level);
+
+      const duration = Date.now() - startTime;
+
+      if (result.success) {
+        logger.info(`[API] Device ${deviceId} level set successfully to ${level}`, { duration });
+        return reply.status(200).send({
+          success: true,
+          data: {
+            deviceId,
+            level,
+          },
+        });
+      } else {
+        // Handle specific error codes
+        const errorCode = result.error.code;
+
+        if (errorCode === 'DEVICE_NOT_FOUND' || errorCode === 'NOT_FOUND') {
+          logger.error(`[API] Device ${deviceId} not found`, { duration });
+          return reply.status(404).send({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: `Device not found: ${deviceId}`,
+            },
+          });
+        }
+
+        if (errorCode === 'CAPABILITY_NOT_SUPPORTED' || errorCode === 'INVALID_LEVEL') {
+          logger.error(`[API] Invalid request for device ${deviceId}`, {
+            error: result.error.message,
+            duration,
+          });
+          return reply.status(400).send({
+            success: false,
+            error: {
+              code: 'BAD_REQUEST',
+              message: result.error.message,
+            },
+          });
+        }
+
+        // Generic error
+        logger.error(`[API] Failed to set device ${deviceId} level`, {
+          error: result.error.message,
+          duration,
+        });
+        return reply.status(500).send({
+          success: false,
+          error: {
+            code: 'INTERNAL_SERVER_ERROR',
+            message: result.error.message,
+          },
+        });
+      }
+    } catch (error: unknown) {
+      const duration = Date.now() - startTime;
+      logger.error('[API] Error setting device level', {
+        deviceId,
+        level,
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+      return reply.status(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to set device level',
+        },
+      });
+    }
+  });
+
+  /**
    * GET /api/rooms - List all rooms with device counts
    *
    * Returns list of rooms from SmartThings with device count for each room.
@@ -1308,6 +1421,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
   logger.info('  POST   /api/rules/:id/execute');
   logger.info('  PATCH  /api/rules/:id');
   logger.info('  DELETE /api/rules/:id');
+  logger.info('  PUT    /api/devices/:deviceId/level');
   logger.info('Other routes: /alexa, /alexa-smarthome, /api/chat, /api/devices/*, /api/automations, /health, /, /auth/smartthings/*');
 }
 

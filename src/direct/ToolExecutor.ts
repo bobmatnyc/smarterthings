@@ -43,6 +43,7 @@ import type { DeviceId, LocationId, RoomId, SceneId } from '../types/smartthings
 import type { AutomationConfig, AutomationTemplate } from '../types/automation.js';
 import type { DirectResult } from './types.js';
 import { unwrapMcpResult } from './converters.js';
+import logger from '../utils/logger.js';
 
 // Import all handler functions
 import {
@@ -142,6 +143,8 @@ import {
  * - Same validation and error handling
  */
 export class ToolExecutor {
+  private serviceContainer: ServiceContainer;
+
   /**
    * Create ToolExecutor instance.
    *
@@ -151,6 +154,8 @@ export class ToolExecutor {
    * @param serviceContainer ServiceContainer with SmartThingsService
    */
   constructor(serviceContainer: ServiceContainer) {
+    this.serviceContainer = serviceContainer;
+
     // Initialize all tool modules with ServiceContainer
     // Same initialization as MCP server (src/server.ts lines 60-72)
     initializeDeviceControlTools(serviceContainer);
@@ -209,6 +214,59 @@ export class ToolExecutor {
   async getDeviceStatus(deviceId: DeviceId): Promise<DirectResult<any>> {
     const result = await handleGetDeviceStatus({ deviceId });
     return unwrapMcpResult<any>(result);
+  }
+
+  /**
+   * Set device level (brightness/dimmer control).
+   *
+   * Controls brightness level for dimmable devices (0-100%).
+   * Requires switchLevel capability on the device.
+   *
+   * Time Complexity: O(1) + network latency (~100ms SmartThings API)
+   * Error Conditions: DEVICE_NOT_FOUND, CAPABILITY_NOT_SUPPORTED, INVALID_LEVEL, API_ERROR
+   *
+   * @param deviceId Device UUID (branded type)
+   * @param level Brightness level (0-100)
+   * @returns Success or error result
+   */
+  async setDeviceLevel(deviceId: DeviceId, level: number): Promise<DirectResult<void>> {
+    logger.info(`[ToolExecutor] Setting device ${deviceId} to level ${level}`);
+
+    // Validate level (0-100)
+    if (level < 0 || level > 100) {
+      logger.error(`[ToolExecutor] Invalid level: ${level}. Must be between 0 and 100.`);
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_LEVEL',
+          message: `Invalid level: ${level}. Must be between 0 and 100.`,
+        },
+      };
+    }
+
+    try {
+      // Get DeviceService from service container
+      const deviceService = this.serviceContainer.getDeviceService();
+
+      // Execute setLevel command via SmartThings API
+      // SmartThings switchLevel capability uses 'setLevel' command with level argument
+      await deviceService.executeCommand(deviceId, 'switchLevel', 'setLevel', [level]);
+
+      logger.info(`[ToolExecutor] Successfully set device ${deviceId} to level ${level}`);
+      return {
+        success: true,
+        data: undefined,
+      };
+    } catch (error) {
+      logger.error(`[ToolExecutor] Error setting device ${deviceId} level:`, error);
+      return {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
+    }
   }
 
   //
@@ -301,11 +359,11 @@ export class ToolExecutor {
    *
    * Time Complexity: O(n) where n = scene count (~100ms)
    *
-   * @param locationId Optional location UUID filter
+   * @param params Optional parameters with locationId filter
    * @returns Scene list or error
    */
-  async listScenes(locationId?: LocationId): Promise<DirectResult<any>> {
-    const result = await handleListScenes({ locationId });
+  async listScenes(params?: { locationId?: LocationId }): Promise<DirectResult<any>> {
+    const result = await handleListScenes({ locationId: params?.locationId });
     return unwrapMcpResult<any>(result);
   }
 
@@ -525,8 +583,114 @@ export class ToolExecutor {
   }
 
   //
-  // Automation Operations (6 methods)
+  // Automation Operations (8 methods)
   //
+
+  /**
+   * List all automation rules for a location.
+   *
+   * Time Complexity: O(n) where n = rule count (~200ms)
+   *
+   * @param locationId Optional location UUID (uses default if not provided)
+   * @returns Array of automation rules or error
+   */
+  async listAutomations(options: { locationId?: LocationId } = {}): Promise<DirectResult<any>> {
+    try {
+      const automationService = this.serviceContainer.getAutomationService();
+
+      // Get default location if not provided
+      let locationId = options.locationId;
+      if (!locationId) {
+        const locationsResult = await this.listLocations();
+        if (!locationsResult.success || !locationsResult.data?.locations?.length) {
+          return {
+            success: false,
+            error: {
+              code: 'NO_LOCATION',
+              message: 'No locations found',
+            },
+          };
+        }
+        locationId = locationsResult.data.locations[0].locationId as LocationId;
+      }
+
+      const rules = await automationService.listRules(locationId);
+
+      return {
+        success: true,
+        data: rules,
+      };
+    } catch (error) {
+      logger.error('Failed to list automations', { error });
+      return {
+        success: false,
+        error: {
+          code: 'AUTOMATION_LIST_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to list automations',
+        },
+      };
+    }
+  }
+
+  /**
+   * Get a specific automation rule.
+   *
+   * Time Complexity: O(1) + network latency (~150ms)
+   *
+   * @param ruleId Rule UUID to get
+   * @param locationId Optional location UUID (uses default if not provided)
+   * @returns Automation rule or error
+   */
+  async getAutomation(options: {
+    ruleId: string;
+    locationId?: LocationId;
+  }): Promise<DirectResult<any>> {
+    try {
+      const automationService = this.serviceContainer.getAutomationService();
+
+      // Get default location if not provided
+      let locationId = options.locationId;
+      if (!locationId) {
+        const locationsResult = await this.listLocations();
+        if (!locationsResult.success || !locationsResult.data?.locations?.length) {
+          return {
+            success: false,
+            error: {
+              code: 'NO_LOCATION',
+              message: 'No locations found',
+            },
+          };
+        }
+        locationId = locationsResult.data.locations[0].locationId as LocationId;
+      }
+
+      const rule = await automationService.getRule(options.ruleId, locationId);
+
+      if (!rule) {
+        return {
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: `Automation rule ${options.ruleId} not found`,
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: rule,
+      };
+    } catch (error) {
+      logger.error('Failed to get automation', { ruleId: options.ruleId, error });
+      return {
+        success: false,
+        error: {
+          code: 'AUTOMATION_GET_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to get automation',
+        },
+      };
+    }
+  }
 
   /**
    * Create automation from template.
@@ -638,6 +802,116 @@ export class ToolExecutor {
   async getAutomationTemplate(template?: AutomationTemplate): Promise<DirectResult<any>> {
     const result = await handleGetTemplate({ template });
     return unwrapMcpResult<any>(result);
+  }
+
+  //
+  // Rules Operations (2 methods)
+  //
+
+  /**
+   * List all rules for a location.
+   *
+   * Returns all SmartThings Rules (IF/THEN automations) for a location.
+   * Rules are modern automations with IF conditions and THEN actions.
+   *
+   * Time Complexity: O(n) where n = rule count (~200ms, cached)
+   *
+   * @param params Optional parameters with locationId filter
+   * @returns Array of rules or error
+   */
+  async listRules(params?: { locationId?: string }): Promise<DirectResult<any[]>> {
+    try {
+      const automationService = this.serviceContainer.getAutomationService();
+
+      // Get default location if not provided
+      let locationId = params?.locationId;
+      if (!locationId) {
+        const locationsResult = await this.listLocations();
+        if (!locationsResult.success || !locationsResult.data?.locations?.length) {
+          return {
+            success: false,
+            error: {
+              code: 'NO_LOCATION',
+              message: 'No locations found',
+            },
+          };
+        }
+        locationId = locationsResult.data.locations[0].locationId;
+      }
+
+      const rules = await automationService.listRules(locationId as LocationId);
+
+      return {
+        success: true,
+        data: rules,
+      };
+    } catch (error) {
+      logger.error('Failed to list rules', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        errorType: error?.constructor?.name,
+        locationId,
+      });
+      return {
+        success: false,
+        error: {
+          code: 'RULE_LIST_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
+    }
+  }
+
+  /**
+   * Execute a rule manually.
+   *
+   * Triggers rule execution immediately, bypassing trigger conditions.
+   * Useful for testing rules or manual execution.
+   *
+   * Time Complexity: O(1) + action execution (~200ms)
+   *
+   * @param params Rule execution parameters
+   * @returns Execution result or error
+   */
+  async executeRule(params: { ruleId: string; locationId?: string }): Promise<DirectResult<any>> {
+    try {
+      const automationService = this.serviceContainer.getAutomationService();
+
+      // Get default location if not provided
+      let locationId = params.locationId;
+      if (!locationId) {
+        const locationsResult = await this.listLocations();
+        if (!locationsResult.success || !locationsResult.data?.locations?.length) {
+          return {
+            success: false,
+            error: {
+              code: 'NO_LOCATION',
+              message: 'No locations found',
+            },
+          };
+        }
+        locationId = locationsResult.data.locations[0].locationId;
+      }
+
+      const result = await automationService.executeRule(
+        params.ruleId,
+        locationId as LocationId
+      );
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      logger.error('Failed to execute rule', { ruleId: params.ruleId, error });
+      return {
+        success: false,
+        error: {
+          code: 'RULE_EXECUTE_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
+    }
   }
 }
 
