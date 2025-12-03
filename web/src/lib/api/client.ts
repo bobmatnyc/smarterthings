@@ -108,6 +108,49 @@ export class ApiClient {
 		const response = await fetch(`${this.baseUrl}/rooms`);
 		return response.json();
 	}
+
+	/**
+	 * List all automations (scenes/manually run routines)
+	 *
+	 * Design Decision: Scenes API integration
+	 * Rationale: Provides access to SmartThings scenes (manually run routines)
+	 * that can be executed on-demand by users.
+	 *
+	 * @returns DirectResult with scenes list
+	 */
+	async getAutomations(): Promise<DirectResult<any>> {
+		const response = await fetch(`${this.baseUrl}/automations`);
+		return response.json();
+	}
+
+	/**
+	 * Execute a scene (automation)
+	 *
+	 * Design Decision: Direct scene execution
+	 * Rationale: Triggers immediate execution of a scene, activating all
+	 * configured device states. Scenes are always manually triggered.
+	 *
+	 * @param sceneId Scene identifier
+	 * @returns DirectResult indicating success
+	 */
+	async executeScene(sceneId: string): Promise<DirectResult<void>> {
+		const response = await fetch(`${this.baseUrl}/automations/${sceneId}/execute`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		});
+
+		if (!response.ok) {
+			const error = await response.json().catch(() => ({
+				success: false,
+				error: { code: 'UNKNOWN_ERROR', message: 'Failed to execute scene' }
+			}));
+			throw new Error(error.error?.message || `Failed to execute scene: ${response.statusText}`);
+		}
+
+		return response.json();
+	}
 }
 
 export const apiClient = new ApiClient();
