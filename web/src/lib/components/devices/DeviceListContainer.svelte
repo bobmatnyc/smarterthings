@@ -26,7 +26,11 @@
 	import { connectDeviceSSE } from '$lib/sse/deviceStream.svelte';
 	import DeviceFilter from './DeviceFilter.svelte';
 	import DeviceGrid from './DeviceGrid.svelte';
+	import DeviceCard from './DeviceCard.svelte';
+	import BrilliantGroupedControls from './BrilliantGroupedControls.svelte';
 	import SkeletonGrid from '$lib/components/loading/SkeletonGrid.svelte';
+	import { groupBrilliantByRoom, isBrilliantDevice } from '$lib/utils/device-utils';
+	import type { UnifiedDevice } from '$types';
 
 	const store = getDeviceStore();
 
@@ -44,6 +48,52 @@
 		return () => {
 			cleanup();
 		};
+	});
+
+	/**
+	 * Prepare device list for rendering (Ticket 1M-560)
+	 * If grouping enabled, create mixed list of grouped panels and individual devices
+	 */
+	interface RenderItem {
+		type: 'device' | 'group';
+		device?: UnifiedDevice;
+		devices?: UnifiedDevice[];
+		room?: string;
+	}
+
+	let renderItems = $derived.by((): RenderItem[] => {
+		if (!store.groupBrilliantPanels) {
+			// No grouping: return all devices as individual items
+			return store.filteredDevices.map((device) => ({ type: 'device' as const, device }));
+		}
+
+		// Grouping enabled: separate Brilliant and non-Brilliant devices
+		const brilliantDevices = store.filteredDevices.filter(isBrilliantDevice);
+		const nonBrilliantDevices = store.filteredDevices.filter((d) => !isBrilliantDevice(d));
+
+		// Group Brilliant devices by room
+		const brilliantGroups = groupBrilliantByRoom(brilliantDevices);
+
+		// Create render items
+		const items: RenderItem[] = [];
+
+		// Add Brilliant groups (only if multiple devices in room)
+		for (const [room, devices] of Object.entries(brilliantGroups)) {
+			if (devices.length >= 2) {
+				// Multi-device room: show as grouped panel
+				items.push({ type: 'group', devices, room });
+			} else {
+				// Single device: show as individual card
+				items.push({ type: 'device', device: devices[0] });
+			}
+		}
+
+		// Add non-Brilliant devices as individual items
+		for (const device of nonBrilliantDevices) {
+			items.push({ type: 'device', device });
+		}
+
+		return items;
 	});
 </script>
 
@@ -81,13 +131,34 @@
 	<DeviceFilter
 		rooms={store.availableRooms}
 		types={store.availableTypes}
+		manufacturers={store.availableManufacturers}
 		onFilterChange={(filters) => {
 			store.setSearchQuery(filters.searchQuery);
 			store.setSelectedRoom(filters.selectedRoom);
 			store.setSelectedType(filters.selectedType);
+			store.setSelectedManufacturer(filters.selectedManufacturer);
 			store.setSelectedCapabilities(filters.selectedCapabilities);
 		}}
 	/>
+
+	<!-- Brilliant Grouping Toggle (Ticket 1M-560) -->
+	{#if store.availableManufacturers.includes('Brilliant Home Technology')}
+		<div class="flex items-center gap-2 p-3 bg-blue-50 dark:bg-surface-800 rounded-lg border border-blue-200 dark:border-blue-700">
+			<input
+				type="checkbox"
+				id="group-brilliant-toggle"
+				checked={store.groupBrilliantPanels}
+				onchange={(e) => store.setGroupBrilliantPanels((e.target as HTMLInputElement).checked)}
+				class="checkbox"
+			/>
+			<label
+				for="group-brilliant-toggle"
+				class="text-sm font-medium text-blue-900 dark:text-blue-100 cursor-pointer"
+			>
+				🔆 Group Brilliant multi-switch panels
+			</label>
+		</div>
+	{/if}
 
 	<!-- Loading State -->
 	{#if store.loading}
@@ -121,20 +192,20 @@
 				{/if}
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-				{#if store.searchQuery || store.selectedRoom || store.selectedType}
+				{#if store.searchQuery || store.selectedRoom || store.selectedType || store.selectedManufacturer}
 					No devices match your filters
 				{:else}
 					No devices found
 				{/if}
 			</h3>
 			<p class="text-gray-600 dark:text-gray-400 mb-6">
-				{#if store.searchQuery || store.selectedRoom || store.selectedType}
+				{#if store.searchQuery || store.selectedRoom || store.selectedType || store.selectedManufacturer}
 					Try adjusting your search criteria
 				{:else}
 					Add devices to get started
 				{/if}
 			</p>
-			{#if store.searchQuery || store.selectedRoom || store.selectedType}
+			{#if store.searchQuery || store.selectedRoom || store.selectedType || store.selectedManufacturer}
 				<button class="btn variant-filled-primary" onclick={store.clearFilters}>
 					Clear Filters
 				</button>
@@ -147,10 +218,27 @@
 			<!-- Results Count -->
 			<div class="text-sm text-gray-600 dark:text-gray-400 mb-4">
 				Showing {store.filteredDevices.length} of {store.stats.total} devices
+				{#if store.groupBrilliantPanels}
+					<span class="text-blue-600 dark:text-blue-400 ml-2">
+						(Brilliant panels grouped)
+					</span>
+				{/if}
 			</div>
 
-			<!-- Grid -->
-			<DeviceGrid devices={store.filteredDevices} />
+			<!-- Render Devices or Grouped Panels -->
+			{#if store.groupBrilliantPanels}
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+					{#each renderItems as item}
+						{#if item.type === 'group' && item.devices && item.room}
+							<BrilliantGroupedControls devices={item.devices} room={item.room} />
+						{:else if item.type === 'device' && item.device}
+							<DeviceCard device={item.device} />
+						{/if}
+					{/each}
+				</div>
+			{:else}
+				<DeviceGrid devices={store.filteredDevices} />
+			{/if}
 		</div>
 	{/if}
 </div>

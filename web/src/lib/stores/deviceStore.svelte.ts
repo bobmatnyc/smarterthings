@@ -47,6 +47,13 @@ let selectedRoom = $state<string | null>(null);
 let selectedRoomId = $state<string | null>(null);
 let selectedCapabilities = $state<string[]>([]);
 let selectedType = $state<string | null>(null);
+let selectedManufacturer = $state<string | null>(null); // Ticket 1M-559
+
+/**
+ * Brilliant panel grouping preference (Ticket 1M-560)
+ * When true, Brilliant devices in same room are displayed as grouped panels
+ */
+let groupBrilliantPanels = $state(false);
 
 /**
  * Loading and error state
@@ -106,6 +113,11 @@ let filteredDevices = $derived.by(() => {
 		result = result.filter((d) => d.type === selectedType);
 	}
 
+	// Filter by selected manufacturer (Ticket 1M-559)
+	if (selectedManufacturer) {
+		result = result.filter((d) => d.manufacturer === selectedManufacturer);
+	}
+
 	// Filter by selected capabilities (device must have ALL)
 	if (selectedCapabilities.length > 0) {
 		result = result.filter((d) =>
@@ -138,6 +150,19 @@ let availableTypes = $derived.by(() => {
 		if (d.type) types.add(d.type);
 	});
 	return Array.from(types).sort();
+});
+
+/**
+ * Available manufacturers (unique, sorted)
+ * Automatically updates when devices change
+ * Ticket 1M-559 - Brilliant device auto-detection
+ */
+let availableManufacturers = $derived.by(() => {
+	const manufacturers = new Set<string>();
+	devices.forEach((d) => {
+		if (d.manufacturer) manufacturers.add(d.manufacturer);
+	});
+	return Array.from(manufacturers).sort();
 });
 
 /**
@@ -342,6 +367,16 @@ export function setSelectedType(type: string | null): void {
 }
 
 /**
+ * Set selected manufacturer filter
+ * Ticket 1M-559 - Brilliant device auto-detection
+ *
+ * @param manufacturer Manufacturer name or null to clear filter
+ */
+export function setSelectedManufacturer(manufacturer: string | null): void {
+	selectedManufacturer = manufacturer;
+}
+
+/**
  * Set selected capabilities filter
  *
  * @param capabilities Array of capability strings
@@ -358,6 +393,7 @@ export function clearFilters(): void {
 	selectedRoom = null;
 	selectedRoomId = null;
 	selectedType = null;
+	selectedManufacturer = null; // Ticket 1M-559
 	selectedCapabilities = [];
 }
 
@@ -368,6 +404,15 @@ export function clearFilters(): void {
  */
 export function setSSEConnected(connected: boolean): void {
 	sseConnected = connected;
+}
+
+/**
+ * Set Brilliant panel grouping preference (Ticket 1M-560)
+ *
+ * @param enabled Whether to group Brilliant panels
+ */
+export function setGroupBrilliantPanels(enabled: boolean): void {
+	groupBrilliantPanels = enabled;
 }
 
 // ============================================================================
@@ -411,6 +456,9 @@ export function getDeviceStore() {
 		get availableTypes() {
 			return availableTypes;
 		},
+		get availableManufacturers() {
+			return availableManufacturers;
+		},
 		get stats() {
 			return stats;
 		},
@@ -432,11 +480,17 @@ export function getDeviceStore() {
 		get selectedType() {
 			return selectedType;
 		},
+		get selectedManufacturer() {
+			return selectedManufacturer;
+		},
 		get selectedCapabilities() {
 			return selectedCapabilities;
 		},
 		get sseConnected() {
 			return sseConnected;
+		},
+		get groupBrilliantPanels() {
+			return groupBrilliantPanels;
 		},
 
 		// Actions
@@ -450,8 +504,10 @@ export function getDeviceStore() {
 		setSelectedRoom,
 		setSelectedRoomId,
 		setSelectedType,
+		setSelectedManufacturer,
 		setSelectedCapabilities,
 		clearFilters,
-		setSSEConnected
+		setSSEConnected,
+		setGroupBrilliantPanels
 	};
 }
