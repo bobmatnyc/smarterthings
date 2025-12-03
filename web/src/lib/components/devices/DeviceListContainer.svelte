@@ -26,6 +26,7 @@
 	import { connectDeviceSSE } from '$lib/sse/deviceStream.svelte';
 	import DeviceFilter from './DeviceFilter.svelte';
 	import DeviceGrid from './DeviceGrid.svelte';
+	import SkeletonGrid from '$lib/components/loading/SkeletonGrid.svelte';
 
 	const store = getDeviceStore();
 
@@ -79,21 +80,18 @@
 	<!-- Filter Controls -->
 	<DeviceFilter
 		rooms={store.availableRooms}
+		types={store.availableTypes}
 		onFilterChange={(filters) => {
 			store.setSearchQuery(filters.searchQuery);
 			store.setSelectedRoom(filters.selectedRoom);
+			store.setSelectedType(filters.selectedType);
 			store.setSelectedCapabilities(filters.selectedCapabilities);
 		}}
 	/>
 
 	<!-- Loading State -->
 	{#if store.loading}
-		<div class="flex justify-center items-center h-64">
-			<div class="flex flex-col items-center gap-4">
-				<div class="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-				<p class="text-gray-600 dark:text-gray-400">Loading devices...</p>
-			</div>
-		</div>
+		<SkeletonGrid count={8} variant="device" />
 
 	<!-- Error State -->
 	{:else if store.error}
@@ -116,27 +114,27 @@
 	{:else if store.filteredDevices.length === 0}
 		<div class="card p-12 text-center bg-surface-100 dark:bg-surface-800">
 			<div class="text-6xl mb-4" aria-hidden="true">
-				{#if store.searchQuery || store.selectedRoom}
+				{#if store.searchQuery || store.selectedRoom || store.selectedType}
 					🔍
 				{:else}
 					📱
 				{/if}
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-				{#if store.searchQuery || store.selectedRoom}
+				{#if store.searchQuery || store.selectedRoom || store.selectedType}
 					No devices match your filters
 				{:else}
 					No devices found
 				{/if}
 			</h3>
 			<p class="text-gray-600 dark:text-gray-400 mb-6">
-				{#if store.searchQuery || store.selectedRoom}
+				{#if store.searchQuery || store.selectedRoom || store.selectedType}
 					Try adjusting your search criteria
 				{:else}
 					Add devices to get started
 				{/if}
 			</p>
-			{#if store.searchQuery || store.selectedRoom}
+			{#if store.searchQuery || store.selectedRoom || store.selectedType}
 				<button class="btn variant-filled-primary" onclick={store.clearFilters}>
 					Clear Filters
 				</button>

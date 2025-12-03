@@ -1,5 +1,6 @@
 <script lang="ts">
   import InstalledAppCard from './InstalledAppCard.svelte';
+  import SkeletonGrid from '$lib/components/loading/SkeletonGrid.svelte';
   import type { InstalledApp } from '$lib/stores/installedAppsStore.svelte';
 
   interface Props {
@@ -11,10 +12,7 @@
 </script>
 
 {#if loading}
-  <div class="loading-state">
-    <div class="spinner"></div>
-    <p>Loading installed apps...</p>
-  </div>
+  <SkeletonGrid count={6} variant="installedapp" />
 {:else if apps.length === 0}
   <div class="empty-state">
     <svg
@@ -47,7 +45,6 @@
     padding: 1rem 0;
   }
 
-  .loading-state,
   .empty-state {
     display: flex;
     flex-direction: column;
@@ -55,26 +52,6 @@
     justify-content: center;
     padding: 4rem 2rem;
     text-align: center;
-  }
-
-  .spinner {
-    width: 3rem;
-    height: 3rem;
-    border: 3px solid rgb(229, 231, 235);
-    border-top-color: rgb(59, 130, 246);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  .loading-state p {
-    margin-top: 1rem;
-    color: rgb(107, 114, 128);
   }
 
   .empty-icon {
