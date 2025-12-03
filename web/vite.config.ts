@@ -4,11 +4,19 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [sveltekit()],
 
+	resolve: {
+		extensions: ['.js', '.ts', '.svelte']
+	},
+
 	server: {
-		port: 5173,
+		port: 5181,
 		proxy: {
 			'/api': {
-				target: 'http://localhost:3000',
+				target: 'http://localhost:5182',
+				changeOrigin: true,
+			},
+			'/auth': {
+				target: 'http://localhost:5182',
 				changeOrigin: true,
 			}
 		}
