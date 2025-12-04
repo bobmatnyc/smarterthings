@@ -140,16 +140,47 @@
 		</div>
 
 		<!-- Execute Button -->
-		<div class="toggle-wrapper">
+		<div class="execute-wrapper">
 			<button
-				class="toggle-switch"
-				class:active={true}
-				class:toggling={isExecuting}
+				class="execute-button"
+				class:executing={isExecuting}
 				onclick={handleExecute}
-				aria-label={`Execute ${scene.name}`}
+				aria-label={isExecuting ? `Executing ${scene.name}...` : `Execute ${scene.name}`}
+				title={isExecuting ? `Executing ${scene.name}...` : `Execute ${scene.name}`}
 				disabled={isExecuting}
 			>
-				<span class="toggle-slider"></span>
+				{#if isExecuting}
+					<svg
+						class="spinner"
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<circle
+							class="opacity-25"
+							cx="12"
+							cy="12"
+							r="10"
+							stroke="currentColor"
+							stroke-width="4"
+						></circle>
+						<path
+							class="opacity-75"
+							fill="currentColor"
+							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+						></path>
+					</svg>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<polygon points="5 3 19 12 5 21 5 3"></polygon>
+					</svg>
+				{/if}
 			</button>
 		</div>
 	</div>
@@ -296,63 +327,83 @@
 		flex-shrink: 0;
 	}
 
-	/* Toggle Switch */
-	.toggle-wrapper {
+	/* Execute Button */
+	.execute-wrapper {
 		display: flex;
 		align-items: flex-start;
 		padding-top: 0.25rem;
 	}
 
-	.toggle-switch {
+	.execute-button {
 		width: 3rem;
-		height: 1.75rem;
-		background: rgb(209, 213, 219);
+		height: 3rem;
+		background: rgb(59, 130, 246);
 		border: none;
-		border-radius: 9999px;
+		border-radius: 50%;
 		cursor: pointer;
 		position: relative;
-		transition: background-color 0.2s ease;
+		transition: all 0.2s ease;
 		padding: 0;
 		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: white;
 	}
 
-	.toggle-switch:hover {
-		background: rgb(156, 163, 175);
+	.execute-button:hover {
+		background: rgb(37, 99, 235);
+		transform: scale(1.05);
+		box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
 	}
 
-	.toggle-switch:focus {
+	.execute-button:active {
+		transform: scale(0.95);
+	}
+
+	.execute-button:focus {
 		outline: 2px solid rgb(59, 130, 246);
 		outline-offset: 2px;
 	}
 
-	.toggle-switch.active {
-		background: rgb(59, 130, 246);
-	}
-
-	.toggle-switch.active:hover {
-		background: rgb(37, 99, 235);
-	}
-
-	.toggle-switch.toggling {
+	.execute-button.executing {
 		opacity: 0.6;
 		cursor: not-allowed;
 	}
 
-	.toggle-slider {
-		display: block;
+	.execute-button svg {
 		width: 1.25rem;
 		height: 1.25rem;
-		background: white;
-		border-radius: 50%;
-		position: absolute;
-		top: 0.25rem;
-		left: 0.25rem;
-		transition: transform 0.2s ease;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
 
-	.toggle-switch.active .toggle-slider {
-		transform: translateX(1.25rem);
+	.spinner {
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	/* Accessibility: Reduced motion support */
+	@media (prefers-reduced-motion: reduce) {
+		.spinner {
+			animation: pulse 1s ease-in-out infinite;
+		}
+
+		@keyframes pulse {
+			0%,
+			100% {
+				opacity: 1;
+			}
+			50% {
+				opacity: 0.5;
+			}
+		}
 	}
 
 	/* Mobile responsiveness */
@@ -386,18 +437,14 @@
 			font-size: 0.8125rem;
 		}
 
-		.toggle-switch {
+		.execute-button {
 			width: 2.75rem;
-			height: 1.625rem;
+			height: 2.75rem;
 		}
 
-		.toggle-slider {
+		.execute-button svg {
 			width: 1.125rem;
 			height: 1.125rem;
-		}
-
-		.toggle-switch.active .toggle-slider {
-			transform: translateX(1.125rem);
 		}
 	}
 
