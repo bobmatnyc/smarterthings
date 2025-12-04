@@ -24,6 +24,7 @@ import {
   formatDuration,
 } from '../types/device-events.js';
 import { parseUniversalDeviceId, isUniversalDeviceId } from '../types/unified-device.js';
+import type { DeviceState } from '../types/smartthings.js';
 
 /**
  * SmartThings API client wrapper with retry logic and error handling.
@@ -51,6 +52,81 @@ import { parseUniversalDeviceId, isUniversalDeviceId } from '../types/unified-de
  * 5. TODO: Extract SceneService from SmartThingsService
  * 6. TODO: Create ServiceFactory/Container for DI
  */
+/**
+ * Extract device state from DeviceStatus.
+ *
+ * Ticket 1M-604: State Enrichment Helper
+ * - Extracts state values from SmartThings API status response
+ * - Returns DeviceState interface for platformSpecific.state
+ * - Graceful degradation: Returns undefined if no usable state
+ *
+ * @param status SmartThings DeviceStatus object
+ * @returns DeviceState with extracted values, or undefined
+ */
+function extractDeviceState(status?: DeviceStatus): DeviceState | undefined {
+  if (!status?.components?.main) {
+    return undefined;
+  }
+
+  const main = status.components.main;
+  const state: DeviceState = {
+    timestamp: new Date().toISOString(),
+  };
+
+  // Extract all state values
+  if (main.switch?.switch?.value !== undefined) {
+    state.switch = main.switch.switch.value as 'on' | 'off';
+  }
+  if (main.switchLevel?.level?.value !== undefined) {
+    state.level = Number(main.switchLevel.level.value);
+  }
+  if (main.temperatureMeasurement?.temperature?.value !== undefined) {
+    state.temperature = Number(main.temperatureMeasurement.temperature.value);
+  }
+  if (main.relativeHumidityMeasurement?.humidity?.value !== undefined) {
+    state.humidity = Number(main.relativeHumidityMeasurement.humidity.value);
+  }
+  if (main.motionSensor?.motion?.value !== undefined) {
+    state.motion = main.motionSensor.motion.value as 'active' | 'inactive';
+  }
+  if (main.illuminanceMeasurement?.illuminance?.value !== undefined) {
+    state.illuminance = Number(main.illuminanceMeasurement.illuminance.value);
+  }
+  if (main.battery?.battery?.value !== undefined) {
+    state.battery = Number(main.battery.battery.value);
+  }
+  if (main.contactSensor?.contact?.value !== undefined) {
+    state.contact = main.contactSensor.contact.value as 'open' | 'closed';
+  }
+  if (main.occupancySensor?.occupancy?.value !== undefined) {
+    state.occupancy = main.occupancySensor.occupancy.value as 'occupied' | 'unoccupied';
+  }
+  if (main.waterSensor?.water?.value !== undefined) {
+    state.water = main.waterSensor.water.value as 'dry' | 'wet';
+  }
+  if (main.smokeDetector?.smoke?.value !== undefined) {
+    state.smoke = main.smokeDetector.smoke.value as 'clear' | 'detected';
+  }
+  if (main.carbonMonoxideDetector?.carbonMonoxide?.value !== undefined) {
+    state.carbonMonoxide = main.carbonMonoxideDetector.carbonMonoxide.value as
+      | 'clear'
+      | 'detected';
+  }
+  if (main.airQualitySensor?.airQuality?.value !== undefined) {
+    state.airQuality = Number(main.airQualitySensor.airQuality.value);
+  }
+  if (main.pressureMeasurement?.pressure?.value !== undefined) {
+    state.pressure = Number(main.pressureMeasurement.pressure.value);
+  }
+  if (main.soundSensor?.soundPressureLevel?.value !== undefined) {
+    state.soundPressureLevel = Number(main.soundSensor.soundPressureLevel.value);
+  }
+
+  // Return state only if we extracted at least one value (besides timestamp)
+  const hasStateData = Object.keys(state).length > 1;
+  return hasStateData ? state : undefined;
+}
+
 export class SmartThingsService implements ISmartThingsService {
   private client: SmartThingsClient;
 
@@ -63,8 +139,13 @@ export class SmartThingsService implements ISmartThingsService {
   /**
    * List all devices accessible with the current token.
    *
+   * Ticket 1M-604: State Enrichment
+   * - Fetches device status for all devices in parallel
+   * - Enriches DeviceInfo with state data for UI display
+   * - Graceful degradation: Individual status failures don't break list
+   *
    * @param roomId Optional room ID to filter devices by room
-   * @returns Array of device information
+   * @returns Array of device information enriched with status
    * @throws Error if API request fails after retries
    */
   async listDevices(roomId?: RoomId): Promise<DeviceInfo[]> {
@@ -78,37 +159,96 @@ export class SmartThingsService implements ISmartThingsService {
     const filteredDevices = roomId ? devices.filter((device) => device.roomId === roomId) : devices;
 
     // Fetch room names for all devices with roomId
+    // Use rooms.list(locationId) instead of rooms.get(roomId) since the SmartThings API
+    // requires location context for room operations
     const roomMap = new Map<string, string>();
-    const roomIds = [...new Set(filteredDevices.map((d) => d.roomId).filter(Boolean))];
+    const locationIds = [...new Set(filteredDevices.map((d) => d.locationId).filter(Boolean))];
 
-    for (const rid of roomIds) {
+    for (const locationId of locationIds) {
       try {
-        const room = await retryWithBackoff(async () => {
-          return await this.client.rooms.get(rid as string);
+        const rooms = await retryWithBackoff(async () => {
+          return await this.client.rooms.list(locationId as string);
         });
-        if (room.roomId) {
-          roomMap.set(room.roomId, room.name ?? 'Unknown Room');
+
+        // Build room map from all rooms in this location
+        for (const room of rooms) {
+          if (room.roomId) {
+            roomMap.set(room.roomId, room.name ?? 'Unknown Room');
+          }
         }
       } catch (error) {
-        logger.warn('Failed to fetch room name', { roomId: rid, error });
+        logger.warn('Failed to fetch rooms for location', { locationId, error });
       }
     }
 
-    const deviceInfos: DeviceInfo[] = filteredDevices.map((device) => ({
-      deviceId: device.deviceId as DeviceId,
-      name: device.name ?? 'Unknown Device',
-      label: device.label,
-      type: device.type,
-      capabilities: (device.components?.[0]?.capabilities?.map((cap) => cap.id) ??
-        []) as unknown as string[],
-      components: device.components?.map((comp) => comp.id),
-      locationId: device.locationId,
-      roomId: device.roomId,
-      roomName: device.roomId ? roomMap.get(device.roomId) : undefined,
-    }));
+    // Ticket 1M-604: Fetch status for all devices in parallel and extract state
+    const statusStartTime = Date.now();
+    const deviceInfosWithState = await Promise.all(
+      filteredDevices.map(async (device) => {
+        try {
+          // Fetch status for this device
+          const status = await this.getDeviceStatus(device.deviceId as DeviceId);
 
-    logger.info('Devices retrieved', { count: deviceInfos.length, roomFilter: !!roomId });
-    return deviceInfos;
+          // Extract state from status
+          const state = extractDeviceState(status);
+
+          return {
+            deviceId: device.deviceId as DeviceId,
+            name: device.name ?? 'Unknown Device',
+            label: device.label,
+            type: device.type,
+            capabilities: (device.components?.[0]?.capabilities?.map((cap) => cap.id) ??
+              []) as unknown as string[],
+            components: device.components?.map((comp) => comp.id),
+            locationId: device.locationId,
+            roomId: device.roomId,
+            roomName: device.roomId ? roomMap.get(device.roomId) : undefined,
+            online: true,
+            platformSpecific: {
+              type: device.type,
+              components: device.components?.map((c) => c.id),
+              roomId: device.roomId,
+              ...(state && { state }), // Add extracted state if available
+            },
+          };
+        } catch (error) {
+          // Graceful degradation: Log warning but return device without status
+          logger.warn(`Failed to fetch status for device ${device.deviceId}`, {
+            deviceName: device.name,
+            error: error instanceof Error ? error.message : String(error),
+          });
+
+          // Return device without status/state
+          return {
+            deviceId: device.deviceId as DeviceId,
+            name: device.name ?? 'Unknown Device',
+            label: device.label,
+            type: device.type,
+            capabilities: (device.components?.[0]?.capabilities?.map((cap) => cap.id) ??
+              []) as unknown as string[],
+            components: device.components?.map((comp) => comp.id),
+            locationId: device.locationId,
+            roomId: device.roomId,
+            roomName: device.roomId ? roomMap.get(device.roomId) : undefined,
+            online: true,
+            platformSpecific: {
+              type: device.type,
+              components: device.components?.map((c) => c.id),
+              roomId: device.roomId,
+            },
+          };
+        }
+      })
+    );
+
+    const statusDuration = Date.now() - statusStartTime;
+    logger.info('Devices retrieved with state enrichment', {
+      count: deviceInfosWithState.length,
+      roomFilter: !!roomId,
+      statusFetchDuration: `${statusDuration}ms`,
+    });
+
+    return deviceInfosWithState;
   }
 
   /**
@@ -777,6 +917,37 @@ export class SmartThingsService implements ISmartThingsService {
       metadata,
       summary,
     };
+  }
+
+  /**
+   * List all installed SmartApps (legacy apps installed in the user's account).
+   *
+   * @param locationId Optional location ID to filter installed apps
+   * @returns Array of installed app information
+   * @throws Error if API request fails after retries
+   */
+  async listInstalledApps(locationId?: LocationId): Promise<any[]> {
+    logger.debug('Fetching installed apps list', { locationId });
+
+    const installedApps = await retryWithBackoff(async () => {
+      return await this.client.installedApps.list({
+        locationId: locationId as string | undefined,
+        installedAppStatus: 'AUTHORIZED',
+      });
+    });
+
+    logger.info('Installed apps retrieved', { count: installedApps.length });
+
+    return installedApps.map((app) => ({
+      id: app.installedAppId,
+      name: app.displayName ?? 'Unnamed App',
+      type: app.installedAppType,
+      status: app.installedAppStatus,
+      classification: app.classifications?.[0] ?? 'AUTOMATION',
+      locationId: app.locationId,
+      createdDate: app.createdDate,
+      lastUpdatedDate: app.lastUpdatedDate,
+    }));
   }
 }
 

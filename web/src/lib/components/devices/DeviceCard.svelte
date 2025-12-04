@@ -22,6 +22,7 @@
 	import type { UnifiedDevice, DeviceCapability } from '$types';
 	import SwitchControl from './controls/SwitchControl.svelte';
 	import DimmerControl from './controls/DimmerControl.svelte';
+	import SensorReadings from './SensorReadings.svelte';
 	import { isBrilliantDevice, getBrilliantIcon } from '$lib/utils/device-utils';
 
 	interface Props {
@@ -151,16 +152,22 @@
 		</div>
 	{/if}
 
-	<!-- Controls -->
+	<!-- Controls or Sensor Readings -->
 	<div class="border-t border-gray-200 dark:border-gray-700 pt-4">
 		{#if controlType === 'dimmer'}
 			<DimmerControl {device} />
 		{:else if controlType === 'switch'}
 			<SwitchControl {device} />
 		{:else}
-			<div class="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
-				No controls available
-			</div>
+			<!-- Ticket 1M-605: Display sensor readings for sensor devices -->
+			<SensorReadings {device} />
+
+			<!-- Only show "No controls available" if truly no sensor data -->
+			{#if !device.platformSpecific?.state || Object.keys(device.platformSpecific.state).length === 0}
+				<div class="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+					No controls available
+				</div>
+			{/if}
 		{/if}
 	</div>
 
