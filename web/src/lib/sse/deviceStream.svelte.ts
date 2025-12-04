@@ -63,7 +63,8 @@ export function connectDeviceSSE(store: ReturnType<typeof getDeviceStore>): () =
 
 		// Create new EventSource
 		try {
-			eventSource = apiClient.createDeviceEventSource();
+			// Connect to actual SSE endpoint (backend /api/events/stream)
+			eventSource = new EventSource('http://localhost:5182/api/events/stream');
 			store.setSSEConnected(false);
 
 			// Connection opened
@@ -186,6 +187,41 @@ export function connectDeviceSSE(store: ReturnType<typeof getDeviceStore>): () =
 					store.removeDevice(data.deviceId);
 				} catch (error) {
 					console.error('[SSE] Failed to parse device-removed event:', error);
+				}
+			});
+
+			/**
+			 * New event listener - ACTUAL backend SSE event
+			 * Handles 'new-event' broadcasts from /api/events/stream
+			 *
+			 * Event Structure (from webhook → queue → SSE broadcast):
+			 * {
+			 *   id: "evt-123",
+			 *   type: "device_event",
+			 *   source: "webhook",
+			 *   deviceId: "device-456",
+			 *   eventType: "switch.switch",
+			 *   value: { switch: "on" },
+			 *   timestamp: "2025-12-04T10:30:00Z"
+			 * }
+			 */
+			eventSource.addEventListener('new-event', (event) => {
+				try {
+					const eventData = JSON.parse(event.data);
+					console.log('[SSE] new-event received:', eventData);
+
+					// Only process device events with state updates
+					if (eventData.type === 'device_event' && eventData.deviceId && eventData.value) {
+						console.log('[SSE] Processing device state change:', {
+							deviceId: eventData.deviceId,
+							stateUpdate: eventData.value
+						});
+
+						// Update device state in store (triggers UI reactivity)
+						store.updateDeviceState(eventData.deviceId, eventData.value);
+					}
+				} catch (error) {
+					console.error('[SSE] Failed to parse new-event:', error);
 				}
 			});
 

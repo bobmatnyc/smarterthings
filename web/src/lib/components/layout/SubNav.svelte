@@ -5,6 +5,11 @@
 	 * Design: Tab-style navigation for main app sections
 	 * Rooms (default) | Devices | Automations
 	 *
+	 * Features:
+	 * - Tab-based navigation
+	 * - Active state highlighting
+	 * - Real-time SSE connection status indicator (ticket 1M-437)
+	 *
 	 * Accessibility:
 	 * - Nav element with ARIA role
 	 * - Active state indication
@@ -17,6 +22,7 @@
 	 */
 
 	import { page } from '$app/stores';
+	import ConnectionStatus from './ConnectionStatus.svelte';
 
 	// Reactive current path for active tab highlighting
 	$: currentPath = $page.url.pathname;
@@ -31,7 +37,8 @@
 		{ label: 'Rooms', href: '/', icon: 'home' },
 		{ label: 'Devices', href: '/devices', icon: 'devices' },
 		{ label: 'Automations', href: '/automations', icon: 'automation' },
-		{ label: 'Rules', href: '/rules', icon: 'rules' }
+		{ label: 'Rules', href: '/rules', icon: 'rules' },
+		{ label: 'Events', href: '/events', icon: 'events' }
 	];
 
 	function isActive(href: string): boolean {
@@ -59,6 +66,11 @@
 				</li>
 			{/each}
 		</ul>
+
+		<!-- Real-time connection status indicator (ticket 1M-437) -->
+		<div class="connection-status-container">
+			<ConnectionStatus />
+		</div>
 	</div>
 </nav>
 
@@ -76,6 +88,9 @@
 		max-width: 1400px;
 		margin: 0 auto;
 		padding: 0 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 	}
 
 	.nav-list {
@@ -84,6 +99,10 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
+	}
+
+	.connection-status-container {
+		margin-left: auto;
 	}
 
 	.nav-item {
@@ -161,6 +180,11 @@
 	.nav-icon[data-icon='rules']::before {
 		-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'%3E%3C/circle%3E%3Cpath d='M12 1v6m0 6v6m8.66-9l-5.2 3m-5.2 3l-5.2 3M20.66 17l-5.2-3m-5.2-3l-5.2-3'%3E%3C/path%3E%3C/svg%3E");
 		mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'%3E%3C/circle%3E%3Cpath d='M12 1v6m0 6v6m8.66-9l-5.2 3m-5.2 3l-5.2 3M20.66 17l-5.2-3m-5.2-3l-5.2-3'%3E%3C/path%3E%3C/svg%3E");
+	}
+
+	.nav-icon[data-icon='events']::before {
+		-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpolyline points='22 12 18 12 15 21 9 3 6 12 2 12'%3E%3C/polyline%3E%3C/svg%3E");
+		mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpolyline points='22 12 18 12 15 21 9 3 6 12 2 12'%3E%3C/polyline%3E%3C/svg%3E");
 	}
 
 	/* Mobile responsiveness */
