@@ -22,6 +22,7 @@
 	import type { UnifiedDevice, DeviceCapability } from '$types';
 	import SwitchControl from './controls/SwitchControl.svelte';
 	import DimmerControl from './controls/DimmerControl.svelte';
+	import { isBrilliantDevice, getBrilliantIcon } from '$lib/utils/device-utils';
 
 	interface Props {
 		device: UnifiedDevice;
@@ -58,9 +59,19 @@
 
 	/**
 	 * Get capability icon for device
+	 *
+	 * Priority Order:
+	 * 1. Brilliant devices get manufacturer-specific icons
+	 * 2. Standard devices get capability-based icons
 	 */
-	function getDeviceIcon(capabilities: readonly DeviceCapability[]): string {
-		// Map capabilities to icons (using emoji for now, can replace with icon library)
+	function getDeviceIcon(device: UnifiedDevice): string {
+		// Priority 1: Brilliant-specific icons (ticket 1M-559)
+		if (isBrilliantDevice(device)) {
+			return getBrilliantIcon(device);
+		}
+
+		// Priority 2: Standard capability icons
+		const capabilities = device.capabilities;
 		if (capabilities.includes('dimmer' as DeviceCapability)) return '💡';
 		if (capabilities.includes('switch' as DeviceCapability)) return '🔌';
 		if (capabilities.includes('thermostat' as DeviceCapability)) return '🌡️';
@@ -78,17 +89,44 @@
 		<div class="flex items-center gap-3 flex-1 min-w-0">
 			<!-- Device Icon -->
 			<div class="text-3xl flex-shrink-0" aria-hidden="true">
-				{getDeviceIcon(device.capabilities)}
+				{getDeviceIcon(device)}
 			</div>
 
 			<!-- Device Name and Room -->
 			<div class="flex-1 min-w-0">
-				<h3 class="text-lg font-semibold truncate" title={device.name}>
-					{device.name}
-				</h3>
+				<div class="flex items-center gap-2 mb-1">
+					<h3 class="text-lg font-semibold truncate" title={device.label || device.name}>
+						{device.label || device.name}
+					</h3>
+					<!-- Brilliant Manufacturer Badge (Ticket 1M-559) -->
+					{#if isBrilliantDevice(device)}
+						<span
+							class="badge variant-filled-primary text-xs px-2 py-0.5"
+							title="Brilliant Home Technology Device"
+							aria-label="Brilliant Home Technology Device"
+						>
+							Brilliant
+						</span>
+					{/if}
+				</div>
+				<!-- Device Type Subtitle (Ticket 1M-603) -->
+				{#if device.name && device.label !== device.name}
+					<p class="text-sm text-gray-500 dark:text-gray-400 truncate" title={device.name}>
+						{device.name}
+					</p>
+				{/if}
 				{#if device.room}
 					<p class="text-sm text-gray-600 dark:text-gray-400 truncate">
 						{device.room}
+					</p>
+				{/if}
+				<!-- Brilliant Info Tooltip (Ticket 1M-559) -->
+				{#if isBrilliantDevice(device)}
+					<p
+						class="text-xs text-gray-500 dark:text-gray-400 mt-1"
+						title="Advanced features (camera, motion sensor, intercom) available in Brilliant Home app"
+					>
+						💡 Tip: Advanced features available in Brilliant app
 					</p>
 				{/if}
 			</div>

@@ -31,8 +31,10 @@ describe('toUnifiedDevice', () => {
       expect(result.id).toBe('smartthings:device-123');
       expect(result.platform).toBe(Platform.SMARTTHINGS);
       expect(result.platformDeviceId).toBe('device-123');
+      // TICKET 1M-603: After fix, name fallback is used when no label
       expect(result.name).toBe('Test Device');
-      expect(result.label).toBeUndefined();
+      // label now contains device type (which is the ST name field)
+      expect(result.label).toBe('Test Device');
       expect(result.capabilities).toEqual([]);
       expect(result.online).toBe(true); // Default
     });
@@ -40,8 +42,8 @@ describe('toUnifiedDevice', () => {
     it('transforms complete DeviceInfo with all fields', () => {
       const deviceInfo: DeviceInfo = {
         deviceId: createDeviceId('device-456'),
-        name: 'Living Room Light',
-        label: 'Main Light',
+        name: 'Living Room Light', // ST device type
+        label: 'Main Light', // ST user-assigned name
         type: 'LAN',
         capabilities: ['switch', 'switchLevel'],
         components: ['main', 'button1'],
@@ -55,8 +57,9 @@ describe('toUnifiedDevice', () => {
       expect(result.id).toBe('smartthings:device-456');
       expect(result.platform).toBe(Platform.SMARTTHINGS);
       expect(result.platformDeviceId).toBe('device-456');
-      expect(result.name).toBe('Living Room Light');
-      expect(result.label).toBe('Main Light');
+      // TICKET 1M-603: Fields are swapped - name gets label, label gets name
+      expect(result.name).toBe('Main Light'); // User-assigned name from ST label
+      expect(result.label).toBe('Living Room Light'); // Device type from ST name
       expect(result.room).toBe('Living Room');
       expect(result.capabilities).toContain(DeviceCapability.SWITCH);
       expect(result.capabilities).toContain(DeviceCapability.DIMMER);
@@ -602,7 +605,10 @@ describe('toUnifiedDevice', () => {
 
       const result = toUnifiedDevice(deviceInfo);
 
-      expect(result.label).toBeUndefined();
+      // TICKET 1M-603: label now gets ST name field (device type)
+      expect(result.label).toBe('No Label Device');
+      // name falls back to ST name when no label
+      expect(result.name).toBe('No Label Device');
     });
 
     it('handles missing roomName', () => {
@@ -661,7 +667,10 @@ describe('toUnifiedDevice', () => {
       const result = toUnifiedDevice(deviceInfo);
 
       expect(result.id).toBe('smartthings:device-minimal');
+      // TICKET 1M-603: name falls back to ST name when no label
       expect(result.name).toBe('Minimal Device');
+      // label gets ST name (device type)
+      expect(result.label).toBe('Minimal Device');
       expect(result.capabilities).toEqual([]);
       expect(result.platformSpecific).toBeUndefined();
     });

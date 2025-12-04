@@ -241,15 +241,24 @@ export function toUnifiedDevice(deviceInfo: DeviceInfo, status?: DeviceStatus): 
   if (deviceInfo.locationId) platformSpecific['locationId'] = deviceInfo.locationId;
   if (deviceInfo.roomId) platformSpecific['roomId'] = deviceInfo.roomId;
 
+  // CRITICAL FIX (Ticket 1M-603): SmartThings API semantics are inverted
+  // - SmartThings "name" field = Device type/model (e.g., "Zooz 4-in-1 sensor")
+  // - SmartThings "label" field = User-assigned name (e.g., "AR Motion Sensor")
+  //
+  // For correct UI display, we swap these fields so UnifiedDevice.name contains
+  // the user-assigned name (primary display) and UnifiedDevice.label contains
+  // the device type (subtitle).
+  //
+  // Fallback: If no label exists, use device type as name to ensure display.
   return {
     // Identity
     id: createUniversalDeviceId(Platform.SMARTTHINGS, deviceInfo.deviceId),
     platform: Platform.SMARTTHINGS,
     platformDeviceId: deviceInfo.deviceId,
 
-    // Metadata
-    name: deviceInfo.name,
-    label: deviceInfo.label,
+    // Metadata (FIELD INVERSION FIX)
+    name: deviceInfo.label || deviceInfo.name, // User-assigned name first, fallback to device type
+    label: deviceInfo.name, // Device type stored in label for subtitle display
     manufacturer: undefined, // Not available in DeviceInfo
     model: undefined, // Not available in DeviceInfo
     firmwareVersion: undefined, // Not available in DeviceInfo
