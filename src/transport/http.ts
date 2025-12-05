@@ -3,6 +3,8 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { environment } from '../config/environment.js';
 import logger from '../utils/logger.js';
+import { getEventStore } from '../storage/event-store.js';
+import { MessageQueue } from '../queue/MessageQueue.js';
 
 /**
  * HTTP transport with Server-Sent Events (SSE) for MCP server.
@@ -24,12 +26,45 @@ export async function startHttpTransport(server: Server): Promise<void> {
 
   app.use(express.json());
 
+  // Initialize event infrastructure for SSE
+  const eventStore = getEventStore();
+  const messageQueue = new MessageQueue();
+
   // Health check endpoint
   app.get('/health', (_req, res) => {
     res.json({
       status: 'healthy',
       service: environment.MCP_SERVER_NAME,
       version: environment.MCP_SERVER_VERSION,
+    });
+  });
+
+  // SSE device events endpoint
+  const sseClients = new Set<express.Response>();
+
+  app.get('/api/events/stream', (_req, res) => {
+    logger.info('New SSE device events connection');
+
+    // Set SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+
+    // Add client to set
+    sseClients.add(res);
+
+    // Send heartbeat every 30 seconds
+    const heartbeat = setInterval(() => {
+      res.write(': heartbeat\n\n');
+    }, 30000);
+
+    // Remove client on disconnect
+    _req.on('close', () => {
+      logger.info('SSE device events connection closed');
+      clearInterval(heartbeat);
+      sseClients.delete(res);
     });
   });
 
