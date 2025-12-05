@@ -70,6 +70,11 @@ import { LlmService } from './services/llm.js';
 import { ChatOrchestrator } from './services/chat-orchestrator.js';
 import { registerOAuthRoutes } from './routes/oauth.js';
 import { SmartThingsAdapter } from './platforms/smartthings/SmartThingsAdapter.js';
+import { MessageQueue } from './queue/MessageQueue.js';
+import { EventStore } from './storage/event-store.js';
+import { registerWebhookRoutes } from './routes/webhook.js';
+import { registerEventsRoutes, broadcastEvent } from './routes/events.js';
+import { ConfigurationError } from './types/errors.js';
 
 /**
  * Server port (configurable via environment)
@@ -85,24 +90,42 @@ const HOST = process.env['ALEXA_SERVER_HOST'] || '0.0.0.0';
 
 /**
  * SmartThingsAdapter instance for automation operations
- * Initialized with token from environment
+ *
+ * Design Decision: Lazy initialization with OAuth support
+ * Rationale: Adapter may not have valid credentials at startup (chicken-and-egg problem).
+ * OAuth routes must be available BEFORE adapter initialization to allow user authentication.
+ *
+ * Initialization Strategy:
+ * 1. Server starts and OAuth routes become available
+ * 2. User authenticates via /auth/smartthings
+ * 3. Adapter initializes on first API request (if credentials available)
+ * 4. API endpoints return 503 if adapter not initialized
  */
-const smartThingsAdapter = new SmartThingsAdapter({
-  token: environment.SMARTTHINGS_PAT,
-});
+let smartThingsAdapter: SmartThingsAdapter | null = null;
 
 /**
  * ServiceContainer instance for device operations
- * Initialized with SmartThingsService and SmartThingsAdapter
+ * Initialized lazily when adapter is available
  */
-const serviceContainer = new ServiceContainer(smartThingsService, smartThingsAdapter);
+let serviceContainer: ServiceContainer | null = null;
 
 /**
  * Singleton ToolExecutor instance for device operations
  */
 let toolExecutor: ToolExecutor | null = null;
 
+/**
+ * Get or create ToolExecutor instance.
+ *
+ * @throws {ConfigurationError} If SmartThings adapter not initialized
+ */
 function getToolExecutor(): ToolExecutor {
+  if (!serviceContainer) {
+    throw new ConfigurationError('SmartThings not configured. Please authenticate via /auth/smartthings', {
+      hint: 'Visit /auth/smartthings to connect your SmartThings account',
+    });
+  }
+
   if (!toolExecutor) {
     toolExecutor = new ToolExecutor(serviceContainer);
   }
@@ -113,6 +136,16 @@ function getToolExecutor(): ToolExecutor {
  * Singleton ChatOrchestrator instance for chat API
  */
 let chatOrchestrator: ChatOrchestrator | null = null;
+
+/**
+ * Singleton MessageQueue instance for event processing
+ */
+let messageQueue: MessageQueue | null = null;
+
+/**
+ * Singleton EventStore instance for event persistence
+ */
+let eventStore: EventStore | null = null;
 
 /**
  * Get or create ChatOrchestrator instance.
@@ -146,6 +179,51 @@ async function getChatOrchestrator(): Promise<ChatOrchestrator> {
   }
 
   return chatOrchestrator;
+}
+
+/**
+ * Get or create MessageQueue instance.
+ *
+ * Lazily initializes message queue with event store integration.
+ *
+ * @returns Promise resolving to initialized MessageQueue
+ */
+async function getMessageQueue(): Promise<MessageQueue> {
+  if (!messageQueue) {
+    messageQueue = new MessageQueue();
+
+    // Register event handler for device_event type
+    messageQueue.registerHandler('device_event', async (event) => {
+      logger.debug('[MessageQueue] Processing device_event', {
+        eventId: event.id,
+        deviceId: event.deviceId,
+      });
+
+      // Broadcast to SSE clients
+      broadcastEvent(event);
+    });
+
+    // Initialize queue (starts workers)
+    await messageQueue.initialize();
+
+    logger.info('[MessageQueue] Initialized and started');
+  }
+
+  return messageQueue;
+}
+
+/**
+ * Get or create EventStore instance.
+ *
+ * @returns EventStore instance
+ */
+function getEventStore(): EventStore {
+  if (!eventStore) {
+    eventStore = new EventStore();
+    logger.info('[EventStore] Initialized');
+  }
+
+  return eventStore;
 }
 
 /**
@@ -240,18 +318,40 @@ async function registerSecurityPlugins(server: FastifyInstance): Promise<void> {
  * - POST /alexa: Main Alexa directive endpoint (with verification)
  * - GET /health: Health check endpoint
  * - GET /: Root endpoint (informational)
+ * - OAuth routes: Registered FIRST to enable authentication before adapter init
  *
  * @param server Fastify instance
  */
 async function registerRoutes(server: FastifyInstance): Promise<void> {
+  // ====================================================================
+  // OAuth Routes (MUST be registered FIRST - before adapter initialization)
+  // ====================================================================
+  try {
+    await registerOAuthRoutes(server);
+    logger.info('OAuth routes registered successfully (available before SmartThings initialization)');
+  } catch (error) {
+    // OAuth routes are optional - if not configured, log warning but don't fail
+    logger.warn('OAuth routes not registered (optional feature)', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   // Health check endpoint
   server.get('/health', async () => {
+    const adapterInitialized = smartThingsAdapter !== null && smartThingsAdapter.isInitialized();
+
     return {
       status: 'healthy',
       service: 'mcp-smarterthings-alexa',
       version: environment.MCP_SERVER_VERSION,
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
+      smartthings: {
+        initialized: adapterInitialized,
+        message: adapterInitialized
+          ? 'SmartThings connected'
+          : 'SmartThings not configured - visit /auth/smartthings to connect',
+      },
     };
   });
 
@@ -298,6 +398,18 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 
     try {
       logger.debug('GET /api/devices', { room, capability });
+
+      // Check if adapter is initialized
+      if (!serviceContainer) {
+        return reply.code(503).send({
+          success: false,
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'SmartThings not configured. Please authenticate via /auth/smartthings',
+            hint: 'Visit /auth/smartthings to connect your SmartThings account',
+          },
+        });
+      }
 
       const executor = getToolExecutor();
       const result = await executor.listDevices({
@@ -773,7 +885,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
    *
    * Returns: DirectResult<Rule[]>
    */
-  server.get('/api/rules', async (request, reply) => {
+  server.get('/api/rules', async (_request, reply) => {
     try {
       logger.info('Fetching rules');
 
@@ -1062,7 +1174,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
    *
    * Returns: { success: boolean, data: { count: number, installedApps: any[] } }
    */
-  server.get('/api/installedapps', async (request, reply) => {
+  server.get('/api/installedapps', async (_request, reply) => {
     try {
       logger.info('Fetching installed apps');
 
@@ -1404,25 +1516,50 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
   );
 
   // ====================================================================
-  // OAuth Routes (for SmartThings OAuth integration)
+  // Webhook Routes (for SmartThings event webhooks)
   // ====================================================================
   try {
-    await registerOAuthRoutes(server);
+    const queue = await getMessageQueue();
+    const store = getEventStore();
+    await registerWebhookRoutes(server, queue, store);
+    logger.info('Webhook routes registered successfully');
   } catch (error) {
-    // OAuth routes are optional - if not configured, log warning but don't fail
-    logger.warn('OAuth routes not registered (optional feature)', {
+    logger.error('Failed to register webhook routes', {
       error: error instanceof Error ? error.message : String(error),
     });
+    // Don't fail server startup - webhooks are optional
+  }
+
+  // ====================================================================
+  // Events API Routes (for event querying and SSE streaming)
+  // ====================================================================
+  try {
+    const queue = await getMessageQueue();
+    const store = getEventStore();
+    await registerEventsRoutes(server, store, queue);
+    logger.info('Events API routes registered successfully');
+  } catch (error) {
+    logger.error('Failed to register events API routes', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // Don't fail server startup - events API is optional
   }
 
   logger.info('API Routes registered:');
-  logger.info('  GET    /api/rules');
-  logger.info('  GET    /api/rules/:id');
-  logger.info('  POST   /api/rules/:id/execute');
-  logger.info('  PATCH  /api/rules/:id');
-  logger.info('  DELETE /api/rules/:id');
-  logger.info('  PUT    /api/devices/:deviceId/level');
-  logger.info('Other routes: /alexa, /alexa-smarthome, /api/chat, /api/devices/*, /api/automations, /health, /, /auth/smartthings/*');
+  logger.info('  OAuth:   GET    /auth/smartthings (initiate OAuth flow)');
+  logger.info('  OAuth:   GET    /auth/smartthings/callback (OAuth callback)');
+  logger.info('  OAuth:   POST   /auth/smartthings/disconnect (disconnect account)');
+  logger.info('  OAuth:   GET    /auth/smartthings/status (check connection)');
+  logger.info('  Rules:   GET    /api/rules');
+  logger.info('  Rules:   POST   /api/rules/:id/execute');
+  logger.info('  Rules:   PATCH  /api/rules/:id');
+  logger.info('  Rules:   DELETE /api/rules/:id');
+  logger.info('  Devices: PUT    /api/devices/:deviceId/level');
+  logger.info('  Events:  GET    /api/events');
+  logger.info('  Events:  GET    /api/events/device/:deviceId');
+  logger.info('  Events:  GET    /api/events/stream (SSE)');
+  logger.info('  Webhook: POST   /webhook/smartthings');
+  logger.info('Other routes: /alexa, /alexa-smarthome, /api/chat, /api/devices/*, /api/automations, /health, /');
 }
 
 /**
@@ -1468,14 +1605,60 @@ function registerErrorHandlers(server: FastifyInstance): void {
 }
 
 /**
+ * Initialize SmartThings adapter if credentials are available.
+ *
+ * Design Decision: Optional initialization at startup
+ * Rationale: If no valid credentials exist (PAT or OAuth), adapter initialization
+ * will fail, but server should still start to provide OAuth authentication endpoints.
+ *
+ * Initialization Priority:
+ * 1. Try OAuth tokens (from token storage)
+ * 2. Try PAT (from environment)
+ * 3. If both fail, log warning and continue (OAuth routes available for user auth)
+ */
+async function initializeSmartThingsAdapter(): Promise<void> {
+  try {
+    // Check if PAT is available
+    if (!environment.SMARTTHINGS_PAT || environment.SMARTTHINGS_PAT.trim().length === 0) {
+      logger.warn('No SmartThings PAT configured - adapter initialization skipped');
+      logger.info('Users can authenticate via /auth/smartthings OAuth flow');
+      return;
+    }
+
+    // Create adapter instance
+    smartThingsAdapter = new SmartThingsAdapter({
+      token: environment.SMARTTHINGS_PAT,
+    });
+
+    // Try to initialize
+    await smartThingsAdapter.initialize();
+
+    // Create service container
+    serviceContainer = new ServiceContainer(smartThingsService, smartThingsAdapter);
+
+    logger.info('SmartThings adapter initialized successfully');
+  } catch (error) {
+    logger.warn('SmartThings adapter initialization failed (OAuth authentication available)', {
+      error: error instanceof Error ? error.message : String(error),
+      hint: 'Users can authenticate via /auth/smartthings',
+    });
+
+    // Reset adapter state
+    smartThingsAdapter = null;
+    serviceContainer = null;
+  }
+}
+
+/**
  * Start Fastify server
  *
  * Startup sequence:
  * 1. Create Fastify instance
  * 2. Register plugins (security)
- * 3. Register routes
- * 4. Register error handlers
- * 5. Start listening on port
+ * 3. Register routes (OAuth routes FIRST)
+ * 4. Try to initialize SmartThings adapter (optional)
+ * 5. Register error handlers
+ * 6. Start listening on port
  *
  * Graceful Shutdown:
  * - SIGINT (Ctrl+C): Close server gracefully
@@ -1491,19 +1674,17 @@ export async function startAlexaServer(): Promise<FastifyInstance> {
   });
 
   try {
-    // Initialize SmartThings adapter before server starts
-    logger.info('Initializing SmartThings adapter');
-    await smartThingsAdapter.initialize();
-    logger.info('SmartThings adapter initialized successfully');
-
-    // Create server
+    // Create server FIRST (before adapter initialization)
     const server = createFastifyServer();
 
     // Register plugins
     await registerSecurityPlugins(server);
 
-    // Register routes
+    // Register routes (OAuth routes registered FIRST inside registerRoutes)
     await registerRoutes(server);
+
+    // Try to initialize SmartThings adapter (optional - may fail if no credentials)
+    await initializeSmartThingsAdapter();
 
     // Register error handlers
     registerErrorHandlers(server);
@@ -1530,9 +1711,31 @@ export async function startAlexaServer(): Promise<FastifyInstance> {
     // Graceful shutdown handlers
     const shutdown = async (signal: string) => {
       logger.info(`Received ${signal}, shutting down gracefully`);
-      await server.close();
-      logger.info('Server closed');
-      process.exit(0);
+
+      try {
+        // Close message queue
+        if (messageQueue) {
+          await messageQueue.close();
+          logger.info('Message queue closed');
+        }
+
+        // Close event store
+        if (eventStore) {
+          eventStore.close();
+          logger.info('Event store closed');
+        }
+
+        // Close server
+        await server.close();
+        logger.info('Server closed');
+
+        process.exit(0);
+      } catch (error) {
+        logger.error('Error during shutdown', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        process.exit(1);
+      }
     };
 
     process.on('SIGINT', () => shutdown('SIGINT'));

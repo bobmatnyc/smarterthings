@@ -1,10 +1,12 @@
 import express from 'express';
+import cors from 'cors';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { environment } from '../config/environment.js';
 import logger from '../utils/logger.js';
 import { getEventStore } from '../storage/event-store.js';
 import { MessageQueue } from '../queue/MessageQueue.js';
+import { getTokenStorage } from '../storage/token-storage.js';
 
 /**
  * HTTP transport with Server-Sent Events (SSE) for MCP server.
@@ -24,6 +26,16 @@ export async function startHttpTransport(server: Server): Promise<void> {
 
   const app = express();
 
+  // CORS middleware - Allow frontend (localhost:5181) to access backend
+  app.use(
+    cors({
+      origin: ['http://localhost:5181', 'http://localhost:5182', 'http://127.0.0.1:5181', 'http://127.0.0.1:5182'],
+      methods: ['GET', 'POST', 'OPTIONS'],
+      credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    })
+  );
+
   app.use(express.json());
 
   // Initialize event infrastructure for SSE
@@ -32,10 +44,20 @@ export async function startHttpTransport(server: Server): Promise<void> {
 
   // Health check endpoint
   app.get('/health', (_req, res) => {
+    // Check SmartThings authentication status
+    const tokenStorage = getTokenStorage();
+    const hasOAuthToken = tokenStorage.hasTokens('default');
+    const hasPAT = !!environment.SMARTTHINGS_PAT;
+    const smartthingsInitialized = hasOAuthToken || hasPAT;
+
     res.json({
       status: 'healthy',
       service: environment.MCP_SERVER_NAME,
       version: environment.MCP_SERVER_VERSION,
+      smartthings: {
+        initialized: smartthingsInitialized,
+        authMethod: hasOAuthToken ? 'oauth' : hasPAT ? 'pat' : 'none',
+      },
     });
   });
 
