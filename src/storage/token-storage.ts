@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import Database from 'better-sqlite3';
-import { logger } from '../logger.js';
+import logger from '../utils/logger.js';
 import { environment } from '../config/environment.js';
 
 /**
@@ -134,13 +134,13 @@ export class TokenStorage {
    * @param expiresAt - Unix timestamp when access token expires
    * @param scope - OAuth scopes granted
    */
-  async storeTokens(
+  storeTokens(
     userId: string = 'default',
     accessToken: string,
     refreshToken: string,
     expiresAt: number,
     scope: string
-  ): Promise<void> {
+  ): void {
     const accessEncrypted = this.encryptToken(accessToken);
     const refreshEncrypted = this.encryptToken(refreshToken);
 
@@ -184,7 +184,7 @@ export class TokenStorage {
    * @param userId - User identifier (default: 'default' for single-user)
    * @returns Decrypted tokens or null if not found
    */
-  async getTokens(userId: string = 'default'): Promise<OAuthToken | null> {
+  getTokens(userId: string = 'default'): OAuthToken | null {
     const stmt = this.db.prepare<[string], EncryptedOAuthToken>(`
       SELECT * FROM oauth_tokens WHERE user_id = ?
     `);
@@ -234,7 +234,7 @@ export class TokenStorage {
    *
    * @param userId - User identifier (default: 'default' for single-user)
    */
-  async deleteTokens(userId: string = 'default'): Promise<void> {
+  deleteTokens(userId: string = 'default'): void {
     const stmt = this.db.prepare('DELETE FROM oauth_tokens WHERE user_id = ?');
     stmt.run(userId);
 
@@ -247,7 +247,7 @@ export class TokenStorage {
    * @param userId - User identifier (default: 'default' for single-user)
    * @returns True if tokens exist
    */
-  async hasTokens(userId: string = 'default'): Promise<boolean> {
+  hasTokens(userId: string = 'default'): boolean {
     const stmt = this.db.prepare<[string], { count: number }>(`
       SELECT COUNT(*) as count FROM oauth_tokens WHERE user_id = ?
     `);
@@ -317,4 +317,28 @@ export class TokenStorage {
     this.db.close();
     logger.debug('Token storage closed');
   }
+}
+
+/**
+ * Singleton token storage instance.
+ * Lazy-initialized on first access to avoid startup overhead.
+ */
+let tokenStorageInstance: TokenStorage | null = null;
+
+/**
+ * Get or create singleton token storage instance.
+ *
+ * Design Decision: Singleton pattern for token storage
+ * Rationale: Single database connection shared across application.
+ * Prevents multiple database connections and ensures consistency.
+ *
+ * @param dbPath - Database file path (default: './data/tokens.db')
+ * @returns Singleton TokenStorage instance
+ */
+export function getTokenStorage(dbPath: string = './data/tokens.db'): TokenStorage {
+  if (!tokenStorageInstance) {
+    tokenStorageInstance = new TokenStorage(dbPath);
+    logger.debug('Token storage singleton created', { dbPath });
+  }
+  return tokenStorageInstance;
 }

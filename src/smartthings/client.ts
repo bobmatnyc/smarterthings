@@ -1,5 +1,8 @@
 import { SmartThingsClient, BearerTokenAuthenticator } from '@smartthings/core-sdk';
 import { environment } from '../config/environment.js';
+import { getTokenStorage } from '../storage/token-storage.js';
+import { OAuthTokenAuthenticator } from './oauth-authenticator.js';
+import { SmartThingsOAuthService } from './oauth-service.js';
 import logger from '../utils/logger.js';
 import { retryWithBackoff } from '../utils/retry.js';
 import type {
@@ -130,10 +133,72 @@ function extractDeviceState(status?: DeviceStatus): DeviceState | undefined {
 export class SmartThingsService implements ISmartThingsService {
   private client: SmartThingsClient;
 
+  /**
+   * Initialize SmartThings client with OAuth or PAT authentication.
+   *
+   * Design Decision: OAuth-first with PAT fallback
+   * Rationale: OAuth tokens auto-refresh (24h expiry), PAT requires daily manual updates.
+   * Checks OAuth token storage first, falls back to PAT if unavailable.
+   *
+   * Authentication Priority:
+   * 1. OAuth token (if available in token storage)
+   * 2. Personal Access Token (from environment variable)
+   *
+   * Error Handling:
+   * - OAuth token unavailable + no PAT: Clear error message
+   * - OAuth token expired: Automatic refresh before API calls
+   * - PAT invalid: Runtime error on first API call
+   *
+   * @throws Error if neither OAuth token nor PAT is available
+   */
   constructor() {
     logger.info('Initializing SmartThings client');
 
-    this.client = new SmartThingsClient(new BearerTokenAuthenticator(environment.SMARTTHINGS_PAT));
+    // Try OAuth token first
+    const tokenStorage = getTokenStorage();
+    const hasOAuthToken = tokenStorage.hasTokens('default');
+
+    if (hasOAuthToken) {
+      try {
+        // Create OAuth service for token refresh
+        if (!environment.SMARTTHINGS_CLIENT_ID || !environment.SMARTTHINGS_CLIENT_SECRET) {
+          throw new Error('OAuth credentials not configured');
+        }
+
+        const oauthService = new SmartThingsOAuthService({
+          clientId: environment.SMARTTHINGS_CLIENT_ID,
+          clientSecret: environment.SMARTTHINGS_CLIENT_SECRET,
+          redirectUri: environment.OAUTH_REDIRECT_URI || '',
+          stateSecret: environment.OAUTH_STATE_SECRET || '',
+        });
+
+        // Use OAuth authenticator with automatic refresh
+        const oauthAuth = new OAuthTokenAuthenticator(tokenStorage, oauthService, 'default');
+        this.client = new SmartThingsClient(oauthAuth);
+
+        logger.info('SmartThings client initialized with OAuth token', {
+          authMethod: 'oauth',
+        });
+        return;
+      } catch (error) {
+        logger.warn('OAuth token initialization failed, falling back to PAT', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // Fallback to PAT
+    if (environment.SMARTTHINGS_PAT) {
+      this.client = new SmartThingsClient(new BearerTokenAuthenticator(environment.SMARTTHINGS_PAT));
+      logger.info('SmartThings client initialized with Personal Access Token', {
+        authMethod: 'pat',
+      });
+    } else {
+      throw new Error(
+        'SmartThings authentication required: Either configure OAuth ' +
+          '(visit /auth/smartthings) or set SMARTTHINGS_PAT environment variable'
+      );
+    }
   }
 
   /**

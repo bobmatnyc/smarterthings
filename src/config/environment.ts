@@ -48,7 +48,8 @@ function getPackageVersion(): string {
  */
 const environmentSchema = z.object({
   // SmartThings Configuration
-  SMARTTHINGS_PAT: z.string().min(1, 'SmartThings Personal Access Token is required'),
+  // SMARTTHINGS_PAT is now optional (OAuth tokens preferred)
+  SMARTTHINGS_PAT: z.string().min(1).optional(),
 
   // SmartThings OAuth Configuration (optional - for OAuth flow)
   SMARTTHINGS_CLIENT_ID: z.string().optional(),
@@ -56,11 +57,12 @@ const environmentSchema = z.object({
   OAUTH_REDIRECT_URI: z.string().url().optional(),
   OAUTH_STATE_SECRET: z.string().optional(),
   TOKEN_ENCRYPTION_KEY: z.string().optional(),
+  FRONTEND_URL: z.string().url().default('http://localhost:5181'),
 
   // MCP Server Configuration
   MCP_SERVER_NAME: z.string().default('smartthings-mcp'),
   MCP_SERVER_VERSION: z.string().default(getPackageVersion()),
-  MCP_SERVER_PORT: z.coerce.number().int().positive().default(3000),
+  MCP_SERVER_PORT: z.coerce.number().int().positive().default(5182),
 
   // Application Configuration
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -84,6 +86,31 @@ let config: Environment;
 
 try {
   config = environmentSchema.parse(process.env);
+
+  // Ticket 1M-601: Validate that at least one authentication method is available
+  // Check if we have either OAuth tokens or PAT
+  const hasOAuthCredentials =
+    config.SMARTTHINGS_CLIENT_ID &&
+    config.SMARTTHINGS_CLIENT_SECRET &&
+    config.TOKEN_ENCRYPTION_KEY;
+  const hasPAT = !!config.SMARTTHINGS_PAT;
+
+  if (!hasOAuthCredentials && !hasPAT) {
+    // NOTE: console.error is acceptable here (writes to stderr)
+    // This runs during module init before logger is available
+    console.error('SmartThings authentication configuration error:');
+    console.error(
+      '  At least one authentication method is required:'
+    );
+    console.error('  1. OAuth: Set SMARTTHINGS_CLIENT_ID, SMARTTHINGS_CLIENT_SECRET, TOKEN_ENCRYPTION_KEY');
+    console.error('     (Recommended - auto-refreshing tokens)');
+    console.error('  2. PAT: Set SMARTTHINGS_PAT environment variable');
+    console.error('     (Alternative - requires manual daily updates)');
+    console.error('');
+    console.error('  Note: OAuth tokens will be checked at runtime.');
+    console.error('        If no OAuth token is stored, PAT will be required.');
+    process.exit(1);
+  }
 } catch (error) {
   if (error instanceof z.ZodError) {
     // NOTE: console.error is acceptable here (writes to stderr)

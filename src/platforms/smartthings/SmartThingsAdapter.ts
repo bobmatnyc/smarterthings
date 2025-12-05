@@ -31,6 +31,9 @@ import {
   type DeviceStatus as STDeviceStatus,
   type Rule,
 } from '@smartthings/core-sdk';
+import { getTokenStorage } from '../../storage/token-storage.js';
+import { OAuthTokenAuthenticator } from '../../smartthings/oauth-authenticator.js';
+import { SmartThingsOAuthService } from '../../smartthings/oauth-service.js';
 import type { IDeviceAdapter } from '../../adapters/base/IDeviceAdapter.js';
 import {
   type UnifiedDevice,
@@ -120,9 +123,17 @@ export class SmartThingsAdapter extends EventEmitter implements IDeviceAdapter {
    * Initialize the adapter and establish platform connection.
    *
    * Responsibilities:
-   * - Authenticate with SmartThings API
+   * - Authenticate with SmartThings API (OAuth or PAT)
    * - Validate credentials via health check
    * - Initialize SDK client
+   *
+   * Design Decision: OAuth-first with PAT fallback
+   * Rationale: Same as SmartThingsService - OAuth auto-refresh preferred.
+   * This adapter can be initialized with either OAuth tokens or PAT.
+   *
+   * Authentication Priority:
+   * 1. OAuth token (if available in token storage)
+   * 2. Personal Access Token (from adapter config)
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
@@ -133,8 +144,53 @@ export class SmartThingsAdapter extends EventEmitter implements IDeviceAdapter {
     logger.info('Initializing SmartThings adapter', { platform: this.platform });
 
     try {
-      // Initialize SmartThings client with Bearer token authentication
-      this.client = new SmartThingsClient(new BearerTokenAuthenticator(this.config.token));
+      // Try OAuth token first
+      const tokenStorage = getTokenStorage();
+      const hasOAuthToken = tokenStorage.hasTokens('default');
+
+      if (hasOAuthToken) {
+        try {
+          // Get OAuth config from environment
+          const { environment } = await import('../../config/environment.js');
+
+          if (environment.SMARTTHINGS_CLIENT_ID && environment.SMARTTHINGS_CLIENT_SECRET) {
+            // Create OAuth service for token refresh
+            const oauthService = new SmartThingsOAuthService({
+              clientId: environment.SMARTTHINGS_CLIENT_ID,
+              clientSecret: environment.SMARTTHINGS_CLIENT_SECRET,
+              redirectUri: environment.OAUTH_REDIRECT_URI || '',
+              stateSecret: environment.OAUTH_STATE_SECRET || '',
+            });
+
+            // Use OAuth authenticator with automatic refresh
+            const oauthAuth = new OAuthTokenAuthenticator(tokenStorage, oauthService, 'default');
+            this.client = new SmartThingsClient(oauthAuth);
+
+            logger.info('SmartThings adapter using OAuth authentication', {
+              platform: this.platform,
+            });
+          } else {
+            throw new Error('OAuth credentials not configured');
+          }
+        } catch (error) {
+          logger.warn('OAuth authentication setup failed, falling back to PAT', {
+            error: error instanceof Error ? error.message : String(error),
+            platform: this.platform,
+          });
+
+          // Fall through to PAT authentication
+          this.client = new SmartThingsClient(new BearerTokenAuthenticator(this.config.token));
+          logger.info('SmartThings adapter using PAT authentication (fallback)', {
+            platform: this.platform,
+          });
+        }
+      } else {
+        // No OAuth token, use PAT
+        this.client = new SmartThingsClient(new BearerTokenAuthenticator(this.config.token));
+        logger.info('SmartThings adapter using PAT authentication', {
+          platform: this.platform,
+        });
+      }
 
       // Validate connection with a test API call
       await retryWithBackoff(async () => {
@@ -1209,6 +1265,33 @@ export class SmartThingsAdapter extends EventEmitter implements IDeviceAdapter {
   }
 
   /**
+   * Detect device manufacturer based on device type and other characteristics.
+   * SmartThings API often returns null for manufacturerName on cloud-integrated devices.
+   * This method provides fallback detection based on known patterns.
+   *
+   * @param device SmartThings device object
+   * @returns Detected manufacturer name or undefined
+   */
+  private detectManufacturer(device: Device): string | undefined {
+    // If manufacturer is provided by SmartThings, use it
+    if (device.manufacturerName) {
+      return device.manufacturerName;
+    }
+
+    // VIPER type devices are Brilliant Home Technology devices
+    // See: docs/BRILLIANT-SETUP.md for details on Brilliant integration
+    if (device.type === 'VIPER') {
+      console.log('[VIPER DETECTED]', device.label, device.type);
+      return 'Brilliant Home Technology';
+    }
+
+    // Add other manufacturer detection patterns here as needed
+    // Example: device.type === 'LUTRON' could be 'Lutron Electronics Co., Inc.'
+
+    return undefined;
+  }
+
+  /**
    * Map SmartThings Device to UnifiedDevice.
    *
    * @param device SmartThings device object
@@ -1221,13 +1304,16 @@ export class SmartThingsAdapter extends EventEmitter implements IDeviceAdapter {
     // Get room name from cache
     const roomName = device.roomId ? this.roomNameCache.get(device.roomId) : undefined;
 
+    const manufacturer = this.detectManufacturer(device);
+    console.log('[MAP DEVICE]', device.label, 'type:', device.type, 'manufacturer:', manufacturer);
+
     return {
       id: createUniversalDeviceId(this.platform, platformDeviceId),
       platform: this.platform,
       platformDeviceId,
       name: device.label ?? device.name ?? 'Unknown Device',
       label: device.label,
-      manufacturer: device.deviceManufacturerCode,
+      manufacturer,
       model: device.type,
       room: roomName,
       location: device.locationId,
@@ -1236,6 +1322,7 @@ export class SmartThingsAdapter extends EventEmitter implements IDeviceAdapter {
       platformSpecific: {
         type: device.type,
         components: device.components?.map((c) => c.id),
+        roomId: device.roomId,
       },
     };
   }
