@@ -30,6 +30,9 @@
 	let { children } = $props();
 	const chatStore = getChatStore();
 
+	// Dynamic copyright year
+	const currentYear = new Date().getFullYear();
+
 	/**
 	 * Keyboard shortcut handler
 	 * Ctrl+/ or Cmd+/ to toggle sidebar
@@ -91,7 +94,7 @@
 	<!-- Footer -->
 	<footer class="app-footer">
 		<div class="footer-content">
-			<p class="copyright">© 2024 Smarter Things. All rights reserved.</p>
+			<p class="copyright">© {currentYear} Smarter Things. All rights reserved.</p>
 			<div class="footer-links">
 				<a href="/privacy">Privacy</a>
 				<span class="divider">•</span>
