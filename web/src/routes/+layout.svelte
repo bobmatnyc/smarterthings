@@ -26,12 +26,14 @@
 	import ChatSidebar from '$lib/components/chat/ChatSidebar.svelte';
 	import { getChatStore } from '$lib/stores/chatStore.svelte';
 	import { Toaster } from 'svelte-sonner';
+	import { FOOTER_LABELS } from '$lib/constants/labels';
 
 	let { children } = $props();
 	const chatStore = getChatStore();
 
 	// Dynamic copyright year
 	const currentYear = new Date().getFullYear();
+	const copyrightText = FOOTER_LABELS.copyright(currentYear);
 
 	/**
 	 * Keyboard shortcut handler
@@ -94,14 +96,14 @@
 	<!-- Footer -->
 	<footer class="app-footer">
 		<div class="footer-content">
-			<p class="copyright">© {currentYear} Smarter Things. All rights reserved.</p>
+			<p class="copyright">{copyrightText}</p>
 			<div class="footer-links">
-				<a href="/privacy">Privacy</a>
+				<a href="/privacy">{FOOTER_LABELS.privacy}</a>
 				<span class="divider">•</span>
-				<a href="/terms">Terms</a>
+				<a href="/terms">{FOOTER_LABELS.terms}</a>
 				<span class="divider">•</span>
-				<a href="https://github.com/yourusername/mcp-smartthings" target="_blank" rel="noopener">
-					GitHub
+				<a href="https://github.com/bobmatnyc/mcp-smarterthings" target="_blank" rel="noopener">
+					{FOOTER_LABELS.github}
 				</a>
 			</div>
 		</div>
