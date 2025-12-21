@@ -9,6 +9,10 @@ dist/
 build/
 *.tsbuildinfo
 .build/
+# Outdated build artifacts (should be in dist/)
+/config/
+/utils/
+/storage/
 
 # Environment variables
 .env
@@ -33,6 +37,7 @@ coverage/
 # Logs
 logs/
 *.log
+build-output.txt
 
 # MCP Ticketer
 .mcp-ticketer/
@@ -40,6 +45,9 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+# Runtime data (SQLite databases, OAuth settings)
+/data/
 
 # Added by Claude MPM /mpm-init
 $RECYCLE.BIN/

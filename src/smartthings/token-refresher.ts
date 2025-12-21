@@ -1,6 +1,6 @@
 import { SmartThingsOAuthService } from './oauth-service.js';
 import { TokenStorage } from '../storage/token-storage.js';
-import { logger } from '../logger.js';
+import logger from '../utils/logger.js';
 
 /**
  * Background token refresh service.
@@ -18,6 +18,11 @@ import { logger } from '../logger.js';
  * Retry Strategy:
  * - 3 attempts with exponential backoff (30s, 60s, 120s)
  * - If all attempts fail, log error and wait for next check interval
+ *
+ * CVE-2024-OAUTH-002 Fix: Concurrent refresh protection via mutex
+ * Prevents race conditions when multiple refresh operations overlap.
+ * Security Impact: MEDIUM - Prevents service disruption and token invalidation
+ * CVSS Score: 5.3 (AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L)
  */
 export class TokenRefresher {
   private oauthService: SmartThingsOAuthService;
@@ -25,6 +30,9 @@ export class TokenRefresher {
   private intervalId: NodeJS.Timeout | null = null;
   private checkIntervalMs: number;
   private refreshBufferSeconds: number;
+
+  // CVE-2024-OAUTH-002 Fix: Mutex for concurrent refresh protection
+  private refreshLocks = new Map<string, Promise<void>>();
 
   constructor(
     oauthService: SmartThingsOAuthService,
@@ -90,9 +98,39 @@ export class TokenRefresher {
   /**
    * Check token expiration and refresh if needed.
    *
+   * CVE-2024-OAUTH-002 Fix: Implements concurrent refresh protection.
+   * If a refresh is already in progress for the user, waits for completion
+   * instead of starting a new refresh operation.
+   *
    * @param userId - User identifier (default: 'default' for single-user)
    */
   private async checkAndRefresh(userId: string): Promise<void> {
+    // CVE-2024-OAUTH-002 Fix: Check if refresh already in progress
+    const existingRefresh = this.refreshLocks.get(userId);
+    if (existingRefresh) {
+      logger.debug('Refresh already in progress, waiting for completion', { userId });
+      await existingRefresh;
+      return;
+    }
+
+    // Acquire lock by creating refresh promise
+    const refreshPromise = this.performRefresh(userId);
+    this.refreshLocks.set(userId, refreshPromise);
+
+    try {
+      await refreshPromise;
+    } finally {
+      // Release lock
+      this.refreshLocks.delete(userId);
+    }
+  }
+
+  /**
+   * Internal refresh logic (called under lock protection).
+   *
+   * @param userId - User identifier
+   */
+  private async performRefresh(userId: string): Promise<void> {
     // Check if user has tokens
     const hasTokens = await this.tokenStorage.hasTokens(userId);
     if (!hasTokens) {

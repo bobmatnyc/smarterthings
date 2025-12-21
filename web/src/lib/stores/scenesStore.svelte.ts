@@ -57,13 +57,11 @@ interface SceneInfo {
 
 /**
  * Backend API response type
+ * API returns: { success: true, data: [...] } where data is the scenes array
  */
 interface ScenesResponse {
 	success: boolean;
-	data: {
-		count: number;
-		scenes: SceneInfo[];
-	};
+	data: SceneInfo[];
 	error?: {
 		message: string;
 	};
@@ -146,10 +144,9 @@ export async function loadScenes(): Promise<void> {
 		// Transform SmartThings Scenes to frontend Scene format
 		const newSceneMap = new Map<string, Scene>();
 
-		// Extract scenes array from nested response structure
-		// API returns: { success: true, data: { count: N, scenes: [...] } }
-		const scenesData = result.data;
-		const scenesArray = scenesData.scenes || [];
+		// Extract scenes array from response
+		// API returns: { success: true, data: [...] } where data is the scenes array
+		const scenesArray = result.data || [];
 
 		scenesArray.forEach((sceneInfo: SceneInfo) => {
 			const scene: Scene = {

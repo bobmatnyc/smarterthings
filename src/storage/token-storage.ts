@@ -4,21 +4,24 @@ import logger from '../utils/logger.js';
 import { environment } from '../config/environment.js';
 
 /**
- * Encrypted OAuth token stored in database
+ * Encrypted OAuth token stored in database.
+ *
+ * IMPORTANT: Property names must match database column names exactly.
+ * SQLite returns columns as snake_case, not camelCase.
  */
 export interface EncryptedOAuthToken {
   id: number;
-  userId: string;
-  accessTokenEncrypted: string;
-  accessTokenIv: string;
-  accessTokenAuthTag: string;
-  refreshTokenEncrypted: string;
-  refreshTokenIv: string;
-  refreshTokenAuthTag: string;
-  expiresAt: number; // Unix timestamp
+  user_id: string;
+  access_token_encrypted: string;
+  access_token_iv: string;
+  access_token_auth_tag: string;
+  refresh_token_encrypted: string;
+  refresh_token_iv: string;
+  refresh_token_auth_tag: string;
+  expires_at: number; // Unix timestamp
   scope: string;
-  createdAt: number;
-  updatedAt: number;
+  created_at: number;
+  updated_at: number;
 }
 
 /**
@@ -198,26 +201,26 @@ export class TokenStorage {
 
     try {
       const accessToken = this.decryptToken(
-        row.accessTokenEncrypted,
-        row.accessTokenIv,
-        row.accessTokenAuthTag
+        row.access_token_encrypted,
+        row.access_token_iv,
+        row.access_token_auth_tag
       );
 
       const refreshToken = this.decryptToken(
-        row.refreshTokenEncrypted,
-        row.refreshTokenIv,
-        row.refreshTokenAuthTag
+        row.refresh_token_encrypted,
+        row.refresh_token_iv,
+        row.refresh_token_auth_tag
       );
 
       logger.debug('OAuth tokens retrieved', {
         userId,
-        expiresAt: new Date(row.expiresAt * 1000).toISOString(),
+        expiresAt: new Date(row.expires_at * 1000).toISOString(),
       });
 
       return {
         accessToken,
         refreshToken,
-        expiresAt: row.expiresAt,
+        expiresAt: row.expires_at,
         scope: row.scope,
       };
     } catch (error) {

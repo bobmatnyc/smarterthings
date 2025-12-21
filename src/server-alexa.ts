@@ -72,6 +72,7 @@ import { registerOAuthRoutes } from './routes/oauth.js';
 import { SmartThingsAdapter } from './platforms/smartthings/SmartThingsAdapter.js';
 import { MessageQueue } from './queue/MessageQueue.js';
 import { EventStore } from './storage/event-store.js';
+import { getTokenStorage } from './storage/token-storage.js';
 import { registerWebhookRoutes } from './routes/webhook.js';
 import { registerEventsRoutes, broadcastEvent } from './routes/events.js';
 import { ConfigurationError } from './types/errors.js';
@@ -1618,27 +1619,59 @@ function registerErrorHandlers(server: FastifyInstance): void {
  */
 async function initializeSmartThingsAdapter(): Promise<void> {
   try {
-    // Check if PAT is available
+    // Priority 1: Check for OAuth tokens in database
+    const tokenStorage = getTokenStorage();
+    const hasOAuthTokens = tokenStorage.hasTokens('default');
+
+    if (hasOAuthTokens) {
+      try {
+        const tokens = tokenStorage.getTokens('default');
+
+        if (tokens) {
+          // Initialize adapter with OAuth access token
+          smartThingsAdapter = new SmartThingsAdapter({
+            token: tokens.accessToken,
+          });
+
+          await smartThingsAdapter.initialize();
+
+          // Create service container
+          serviceContainer = new ServiceContainer(smartThingsService, smartThingsAdapter);
+
+          logger.info('SmartThings adapter initialized with OAuth tokens', {
+            expiresAt: new Date(tokens.expiresAt * 1000).toISOString(),
+            scope: tokens.scope,
+          });
+          return;
+        }
+      } catch (error) {
+        logger.warn('Failed to retrieve or use OAuth tokens, falling back to PAT', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        // Fall through to PAT attempt
+      }
+    }
+
+    // Priority 2: Fall back to PAT if no OAuth tokens
     if (!environment.SMARTTHINGS_PAT || environment.SMARTTHINGS_PAT.trim().length === 0) {
-      logger.warn('No SmartThings PAT configured - adapter initialization skipped');
+      logger.warn('No SmartThings credentials available (neither OAuth nor PAT)');
       logger.info('Users can authenticate via /auth/smartthings OAuth flow');
       return;
     }
 
-    // Create adapter instance
+    // Initialize with PAT
     smartThingsAdapter = new SmartThingsAdapter({
       token: environment.SMARTTHINGS_PAT,
     });
 
-    // Try to initialize
     await smartThingsAdapter.initialize();
 
     // Create service container
     serviceContainer = new ServiceContainer(smartThingsService, smartThingsAdapter);
 
-    logger.info('SmartThings adapter initialized successfully');
+    logger.info('SmartThings adapter initialized with PAT');
   } catch (error) {
-    logger.warn('SmartThings adapter initialization failed (OAuth authentication available)', {
+    logger.warn('SmartThings adapter initialization failed', {
       error: error instanceof Error ? error.message : String(error),
       hint: 'Users can authenticate via /auth/smartthings',
     });

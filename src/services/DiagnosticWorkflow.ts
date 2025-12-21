@@ -655,6 +655,7 @@ export class DiagnosticWorkflow {
     'TP-Link': 'Kasa Smart',
     Meross: 'Meross',
     GE: 'C by GE',
+    'Brilliant Home Technology': 'Brilliant Home', // Ticket 1M-559
   };
 
   /**

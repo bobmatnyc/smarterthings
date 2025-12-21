@@ -23,6 +23,7 @@
 	 */
 
 	import { getDeviceStore } from '$lib/stores/deviceStore.svelte';
+	import { getRoomStore } from '$lib/stores/roomStore.svelte';
 	import { connectDeviceSSE } from '$lib/sse/deviceStream.svelte';
 	import DeviceFilter from './DeviceFilter.svelte';
 	import DeviceGrid from './DeviceGrid.svelte';
@@ -33,13 +34,15 @@
 	import type { UnifiedDevice } from '$types';
 
 	const store = getDeviceStore();
+	const roomStore = getRoomStore();
 
 	/**
-	 * Load devices and connect SSE on mount
+	 * Load devices, rooms, and connect SSE on mount
 	 */
 	$effect(() => {
-		// Load devices from API
+		// Load devices and rooms from API
 		store.loadDevices();
+		roomStore.loadRooms();
 
 		// Connect to SSE stream for real-time updates
 		const cleanup = connectDeviceSSE(store);
@@ -129,12 +132,12 @@
 
 	<!-- Filter Controls -->
 	<DeviceFilter
-		rooms={store.availableRooms}
+		rooms={roomStore.rooms}
 		types={store.availableTypes}
 		manufacturers={store.availableManufacturers}
 		onFilterChange={(filters) => {
 			store.setSearchQuery(filters.searchQuery);
-			store.setSelectedRoom(filters.selectedRoom);
+			store.setSelectedRoomId(filters.selectedRoomId);
 			store.setSelectedType(filters.selectedType);
 			store.setSelectedManufacturer(filters.selectedManufacturer);
 			store.setSelectedCapabilities(filters.selectedCapabilities);
@@ -185,27 +188,27 @@
 	{:else if store.filteredDevices.length === 0}
 		<div class="card p-12 text-center bg-surface-100 dark:bg-surface-800">
 			<div class="text-6xl mb-4" aria-hidden="true">
-				{#if store.searchQuery || store.selectedRoom || store.selectedType}
+				{#if store.searchQuery || store.selectedRoomId || store.selectedType}
 					🔍
 				{:else}
 					📱
 				{/if}
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-				{#if store.searchQuery || store.selectedRoom || store.selectedType || store.selectedManufacturer}
+				{#if store.searchQuery || store.selectedRoomId || store.selectedType || store.selectedManufacturer}
 					No devices match your filters
 				{:else}
 					No devices found
 				{/if}
 			</h3>
 			<p class="text-gray-600 dark:text-gray-400 mb-6">
-				{#if store.searchQuery || store.selectedRoom || store.selectedType || store.selectedManufacturer}
+				{#if store.searchQuery || store.selectedRoomId || store.selectedType || store.selectedManufacturer}
 					Try adjusting your search criteria
 				{:else}
 					Add devices to get started
 				{/if}
 			</p>
-			{#if store.searchQuery || store.selectedRoom || store.selectedType || store.selectedManufacturer}
+			{#if store.searchQuery || store.selectedRoomId || store.selectedType || store.selectedManufacturer}
 				<button class="btn variant-filled-primary" onclick={store.clearFilters}>
 					Clear Filters
 				</button>

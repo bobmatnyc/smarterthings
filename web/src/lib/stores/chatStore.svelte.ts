@@ -44,7 +44,7 @@ let messages = $state<ChatMessage[]>([]);
 let inputText = $state('');
 let currentMode = $state<ChatMode>(ChatMode.NORMAL);
 let isProcessing = $state(false);
-let sidebarCollapsed = $state(false);
+let sidebarCollapsed = $state(true); // Default to collapsed for better device grid layout
 let error = $state<string | null>(null);
 
 // ============================================================================

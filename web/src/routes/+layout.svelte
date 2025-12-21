@@ -1,13 +1,22 @@
 <script lang="ts">
 	/**
-	 * App Layout with Modern Dashboard Design
+	 * App Layout with Modern Dashboard Design + Global Auth Guard
 	 *
-	 * Design Decision: Simplified layout with rooms-first navigation
+	 * Design Decision: Global authentication check at layout level
 	 *
-	 * Rationale: Modern smart home UX pattern focusing on:
-	 * - Clear visual hierarchy (Header → SubNav → Content)
-	 * - Consistent navigation across all views
-	 * - Chat sidebar for AI assistance (optional/collapsible)
+	 * Rationale: Modern web apps (Google, GitHub, etc.) check authentication
+	 * once at the root layout and redirect to dedicated auth page if needed.
+	 * This provides:
+	 * - Single source of truth for authentication state
+	 * - No duplicate auth checks in every page
+	 * - Clean separation between public (auth page) and protected routes
+	 * - Better UX (clear "you need to log in" flow)
+	 *
+	 * Authentication Flow:
+	 * 1. Layout checks /health endpoint on mount
+	 * 2. If authenticated → render app normally
+	 * 3. If not authenticated → redirect to /auth page
+	 * 4. /auth page is exempt from redirect (public route)
 	 *
 	 * Layout Structure:
 	 * - Fixed Header: App branding and title
@@ -19,11 +28,15 @@
 	 * - Ctrl+/ (or Cmd+/ on Mac): Toggle chat sidebar
 	 */
 
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import '../app.postcss';
 	import favicon from '$lib/assets/favicon.svg';
 	import Header from '$lib/components/layout/Header.svelte';
 	import SubNav from '$lib/components/layout/SubNav.svelte';
 	import ChatSidebar from '$lib/components/chat/ChatSidebar.svelte';
+	import LoadingSpinner from '$lib/components/loading/LoadingSpinner.svelte';
 	import { getChatStore } from '$lib/stores/chatStore.svelte';
 	import { Toaster } from 'svelte-sonner';
 	import { FOOTER_LABELS } from '$lib/constants/labels';
@@ -31,9 +44,61 @@
 	let { children } = $props();
 	const chatStore = getChatStore();
 
+	// Backend URL from environment or default
+	const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5182';
+
+	// Authentication state
+	let authChecked = $state(false);
+	let isAuthenticated = $state(false);
+
 	// Dynamic copyright year
 	const currentYear = new Date().getFullYear();
 	const copyrightText = FOOTER_LABELS.copyright(currentYear);
+
+	/**
+	 * Global Authentication Check
+	 *
+	 * Design Decision: Check auth at layout level, not in every page
+	 * Rationale: Single check prevents duplicate code and race conditions
+	 *
+	 * Process:
+	 * 1. Skip check for public routes (/auth)
+	 * 2. Check /health endpoint for SmartThings initialization
+	 * 3. If not authenticated, redirect to /auth
+	 * 4. If authenticated, render app normally
+	 */
+	onMount(async () => {
+		// Skip auth check for public routes
+		if ($page.url.pathname.startsWith('/auth')) {
+			authChecked = true;
+			return;
+		}
+
+		try {
+			// Check authentication via /health endpoint
+			const response = await fetch(`${BACKEND_URL}/health`);
+
+			if (!response.ok) {
+				throw new Error(`Backend returned ${response.status}`);
+			}
+
+			const data = await response.json();
+
+			// Check if SmartThings is initialized
+			isAuthenticated = data.smartthings?.initialized ?? false;
+			authChecked = true;
+
+			if (!isAuthenticated) {
+				// Redirect to auth page
+				goto('/auth');
+			}
+		} catch (error) {
+			console.error('Auth check failed:', error);
+			authChecked = true;
+			isAuthenticated = false;
+			goto('/auth');
+		}
+	});
 
 	/**
 	 * Keyboard shortcut handler
@@ -53,67 +118,100 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<!-- Chat Sidebar (Fixed Left) -->
-<ChatSidebar />
+<!-- Global Auth Guard: Show loading or app based on auth state -->
+{#if !authChecked}
+	<!-- Loading State: Checking authentication -->
+	<div class="auth-loading-container">
+		<LoadingSpinner size="48px" label="Checking authentication" />
+		<p class="auth-loading-text">Connecting to Smarter Things...</p>
+	</div>
+{:else if isAuthenticated || $page.url.pathname.startsWith('/auth')}
+	<!-- Authenticated OR on auth page: Show normal app -->
 
-<!-- Toggle Button (visible when sidebar is collapsed) -->
-{#if chatStore.sidebarCollapsed}
-	<button
-		class="sidebar-toggle-btn"
-		onclick={() => chatStore.toggleSidebar()}
-		aria-label="Open chat sidebar"
-		title="Open chat (Ctrl+/)"
-	>
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			width="20"
-			height="20"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
+	<!-- Chat Sidebar (Fixed Left) -->
+	<ChatSidebar />
+
+	<!-- Toggle Button (visible when sidebar is collapsed) -->
+	{#if chatStore.sidebarCollapsed}
+		<button
+			class="sidebar-toggle-btn"
+			onclick={() => chatStore.toggleSidebar()}
+			aria-label="Open chat sidebar"
+			title="Open chat (Ctrl+/)"
 		>
-			<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-		</svg>
-	</button>
-{/if}
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="20"
+				height="20"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			>
+				<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+			</svg>
+		</button>
+	{/if}
 
-<!-- Main App Shell -->
-<div class="app-shell" class:sidebar-open={!chatStore.sidebarCollapsed}>
-	<!-- Main Header -->
-	<Header />
+	<!-- Main App Shell -->
+	<div class="app-shell" class:sidebar-open={!chatStore.sidebarCollapsed}>
+		<!-- Main Header -->
+		<Header />
 
-	<!-- Sub-Navigation -->
-	<SubNav />
+		<!-- Sub-Navigation -->
+		<SubNav />
 
-	<!-- Main Content Area -->
-	<main class="app-main">
-		{@render children()}
-	</main>
+		<!-- Main Content Area -->
+		<main class="app-main">
+			{@render children()}
+		</main>
 
-	<!-- Footer -->
-	<footer class="app-footer">
-		<div class="footer-content">
-			<p class="copyright">{copyrightText}</p>
-			<div class="footer-links">
-				<a href="/privacy">{FOOTER_LABELS.privacy}</a>
-				<span class="divider">•</span>
-				<a href="/terms">{FOOTER_LABELS.terms}</a>
-				<span class="divider">•</span>
-				<a href="https://github.com/bobmatnyc/mcp-smarterthings" target="_blank" rel="noopener">
-					{FOOTER_LABELS.github}
-				</a>
+		<!-- Footer -->
+		<footer class="app-footer">
+			<div class="footer-content">
+				<p class="copyright">{copyrightText}</p>
+				<div class="footer-links">
+					<a href="/privacy">{FOOTER_LABELS.privacy}</a>
+					<span class="divider">•</span>
+					<a href="/terms">{FOOTER_LABELS.terms}</a>
+					<span class="divider">•</span>
+					<a href="https://github.com/bobmatnyc/mcp-smarterthings" target="_blank" rel="noopener">
+						{FOOTER_LABELS.github}
+					</a>
+				</div>
 			</div>
-		</div>
-	</footer>
-</div>
+		</footer>
+	</div>
+{/if}
 
 <!-- Toast Notification System -->
 <Toaster position="top-right" richColors closeButton duration={3000} />
 
 <style>
+	/**
+	 * Auth Loading Container
+	 *
+	 * Centered loading state while checking authentication at app startup.
+	 */
+	.auth-loading-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 100vh;
+		gap: 1rem;
+		padding: 2rem;
+		background: rgb(249, 250, 251);
+	}
+
+	.auth-loading-text {
+		font-size: 1rem;
+		color: rgb(107, 114, 128);
+		margin: 0;
+	}
+
 	.app-shell {
 		min-height: 100vh;
 		display: flex;

@@ -1,0 +1,24 @@
+diff --git a/src/types/smartthings.ts b/src/types/smartthings.ts
+index 1234567..abcdefg 100644
+--- a/src/types/smartthings.ts
++++ b/src/types/smartthings.ts
+@@ -67,6 +67,9 @@ export type RoomId = string & { readonly __brand: 'RoomId' };
+ export interface DeviceInfo {
+   deviceId: DeviceId;
+   name: string;
+   label?: string;
+   type?: string;
+   capabilities?: string[];
+   components?: string[];
+   locationId?: string;
+   roomId?: string;
+   roomName?: string;
+   online?: boolean;
+   platformSpecific?: Record<string, unknown>;
++  // FIX: Add manufacturer metadata fields (Ticket 1M-559)
++  manufacturer?: string;
++  model?: string;
++  firmwareVersion?: string;
+ }
+
+ /**

@@ -1,0 +1,362 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║         SmartThings Automations Integration - Research Summary              ║
+╔══════════════════════════════════════════════════════════════════════════════╗
+
+CURRENT STATE
+═════════════
+
+Backend (COMPLETE) ✅
+├── AutomationService.ts (579 lines)
+│   ├── listRules(locationId) → Rule[]
+│   ├── getRule(ruleId, locationId) → Rule | null
+│   ├── createRule(locationId, rule) → Rule
+│   ├── updateRule(ruleId, locationId, updates) → Rule
+│   ├── deleteRule(ruleId, locationId) → void
+│   └── executeRule(ruleId, locationId) → ExecutionResult
+│
+├── SmartThingsAdapter.ts
+│   ├── Rules API integration via @smartthings/core-sdk
+│   ├── Retry logic with exponential backoff
+│   └── Error handling and event emission
+│
+└── MCP Automation Tools (923 lines)
+    ├── create_automation
+    ├── update_automation
+    ├── delete_automation
+    ├── test_automation
+    ├── execute_automation
+    └── get_automation_template
+
+Frontend (READY) ✅
+├── automationStore.svelte.ts (254 lines)
+│   ├── Svelte 5 Runes state management
+│   ├── Map-based automation storage (O(1) lookup)
+│   ├── Derived stats (total, enabled, disabled)
+│   ├── loadAutomations() with API + mock fallback
+│   └── toggleAutomation(id) with API + local fallback
+│
+└── UI Components
+    ├── AutomationsGrid.svelte
+    ├── AutomationCard.svelte
+    └── /automations route
+
+Missing Layer (TODO) ❌
+└── REST API Integration
+    ├── /web/src/routes/api/automations/+server.ts
+    ├── /web/src/routes/api/automations/[id]/toggle/+server.ts
+    ├── /web/src/lib/server/services.ts
+    └── /web/src/lib/server/transformers/ruleToAutomation.ts
+
+
+DATA FLOW (Current - Mock)
+═══════════════════════════
+
+Frontend                    Backend
+┌─────────────────────┐    ┌────────────────────┐
+│ automationStore     │    │ AutomationService  │
+│                     │    │                    │
+│ loadAutomations()   │    │ ✅ Implemented     │
+│   ↓                 │    │ ❌ Not exposed     │
+│ fetch('/api/        │ ━━━━━━━→ 404 Not Found  │
+│   automations')     │    │                    │
+│   ↓                 │    │                    │
+│ ❌ API fails        │    └────────────────────┘
+│   ↓                 │
+│ Use mock data ✅    │
+│   ↓                 │
+│ Display 6 fake      │
+│ automations         │
+└─────────────────────┘
+
+
+DATA FLOW (Target - Real)
+══════════════════════════
+
+Frontend                    SvelteKit API                Backend
+┌─────────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
+│ automationStore     │    │ +server.ts       │    │ AutomationService   │
+│                     │    │                  │    │                     │
+│ loadAutomations()   │    │ GET /api/        │    │ listRules()         │
+│   ↓                 │    │   automations    │    │   ↓                 │
+│ fetch('/api/        │━━━━→│   ↓              │━━━━→│ SmartThingsAdapter │
+│   automations')     │    │ serviceContainer │    │   ↓                 │
+│   ↓                 │    │   .getAutomation │    │ @smartthings/       │
+│ ✅ API success      │    │   Service()      │    │   core-sdk          │
+│   ↓                 │    │   .listRules()   │    │   ↓                 │
+│ Transform Rules     │←━━━━│   ↓              │←━━━━│ SmartThings Cloud  │
+│   to Automations    │    │ ruleToAutomation │    │   Rules API         │
+│   ↓                 │    │   transformer    │    │                     │
+│ Display real        │    │   ↓              │    └─────────────────────┘
+│ automations         │    │ Return JSON      │
+└─────────────────────┘    └──────────────────┘
+
+
+SMARTTHINGS RULES API
+═════════════════════
+
+Rule Structure
+──────────────
+{
+  id: "uuid",                           // Rule UUID
+  name: "Motion Lights",                // Human-readable name
+  status: "Enabled" | "Disabled",       // Rule state
+  actions: [                            // Action tree
+    {
+      if: {                             // Conditional logic
+        equals: {                       // Comparison operator
+          left: {
+            device: {                   // Device operand
+              devices: ["uuid"],        // Device UUIDs
+              capability: "motionSensor",
+              attribute: "motion",
+              trigger: "Always"         // ← TRIGGER MODE
+            }
+          },
+          right: { string: "active" }
+        },
+        then: [                         // Actions on true
+          {
+            command: {                  // Device command
+              devices: ["light-uuid"],
+              commands: [{
+                capability: "switch",
+                command: "on"
+              }]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+
+Available Operations
+────────────────────
+✅ client.rules.list(locationId, options)
+✅ client.rules.get(ruleId, locationId)
+✅ client.rules.create(rule, locationId)
+✅ client.rules.update(ruleId, rule, locationId)
+✅ client.rules.delete(ruleId, locationId)
+✅ client.rules.execute(ruleId, locationId)
+
+
+FRONTEND AUTOMATION FORMAT
+═══════════════════════════
+
+interface Automation {
+  id: string;                // Rule UUID
+  name: string;              // Rule name
+  enabled: boolean;          // status !== 'Disabled'
+  triggers?: string[];       // ["Motion detected"]
+  actions?: string[];        // ["Turn on lights"]
+  lastExecuted?: string;     // ISO timestamp (not available from API)
+}
+
+Transformation Required
+───────────────────────
+SmartThings Rule                     Frontend Automation
+─────────────────                    ──────────────────
+rule.id                          →   automation.id
+rule.name                        →   automation.name
+rule.status !== 'Disabled'       →   automation.enabled
+rule.actions[].if.device         →   automation.triggers[]
+  (trigger: 'Always')                 (human-readable)
+rule.actions[].command           →   automation.actions[]
+                                      (human-readable)
+
+
+IMPLEMENTATION PLAN
+═══════════════════
+
+Phase 1: Data Transformer (30 mins)
+────────────────────────────────────
+File: /web/src/lib/server/transformers/ruleToAutomation.ts
+
+Functions:
+  • ruleToAutomation(rule: Rule): Automation
+  • extractTriggers(rule: Rule): string[]
+  • extractActions(rule: Rule): string[]
+  • formatDeviceTrigger(deviceOperand): string
+  • formatCommand(cmd): string
+
+Mappings:
+  Trigger Map:
+    'motionSensor.motion.active' → 'Motion detected'
+    'contactSensor.contact.open' → 'Door/window opened'
+    'temperatureMeasurement.temperature' → 'Temperature changed'
+
+  Command Map:
+    'switch.on' → 'Turn on lights'
+    'switch.off' → 'Turn off lights'
+    'switchLevel.setLevel' → 'Set brightness to X%'
+    'thermostat.setCoolingSetpoint' → 'Set cooling to X°'
+
+Phase 2: Shared Services (15 mins)
+───────────────────────────────────
+File: /web/src/lib/server/services.ts
+
+Exports:
+  • serviceContainer: ServiceContainer
+  • getDefaultLocationId(): string
+
+Phase 3: API Route - List (30 mins)
+────────────────────────────────────
+File: /web/src/routes/api/automations/+server.ts
+
+Handler:
+  GET /api/automations
+    ├─ Get locationId (query param or default)
+    ├─ serviceContainer.getAutomationService()
+    ├─ automationService.listRules(locationId)
+    ├─ Transform rules to automations
+    └─ Return AutomationsResponse
+
+Response:
+  {
+    success: true,
+    data: {
+      count: 5,
+      automations: [...]
+    }
+  }
+
+Phase 4: API Route - Toggle (30 mins)
+──────────────────────────────────────
+File: /web/src/routes/api/automations/[id]/toggle/+server.ts
+
+Handler:
+  POST /api/automations/{id}/toggle
+    ├─ Parse request body { enabled: boolean }
+    ├─ Get rule via automationService.getRule()
+    ├─ Update rule.status = enabled ? 'Enabled' : 'Disabled'
+    ├─ automationService.updateRule(ruleId, locationId, updates)
+    └─ Return { success: true, data: { ruleId, enabled } }
+
+Phase 5: Remove Mock Data (15 mins)
+────────────────────────────────────
+File: /web/src/lib/stores/automationStore.svelte.ts
+
+Changes:
+  • Remove mock automations array
+  • Remove mock data fallback
+  • Throw real errors on API failures
+  • Rely entirely on /api/automations endpoint
+
+
+TESTING STRATEGY
+═════════════════
+
+Unit Tests
+──────────
+• ruleToAutomation() - Basic transformation
+• extractTriggers() - Motion sensor, contact sensor, temperature
+• extractActions() - Switch on/off, dimmer, thermostat
+• formatDeviceTrigger() - Capability mapping
+• formatCommand() - Command mapping
+
+Integration Tests
+─────────────────
+• GET /api/automations - Success response
+• GET /api/automations - Error handling
+• POST /api/automations/{id}/toggle - Enable rule
+• POST /api/automations/{id}/toggle - Disable rule
+• POST /api/automations/{id}/toggle - Rule not found
+
+Manual Testing
+──────────────
+✅ Visit /automations page, verify real data loads
+✅ Toggle automation, verify state persists
+✅ Refresh page, verify loading state
+✅ Disconnect SmartThings, verify error message
+✅ Create rule in SmartThings app, verify appears
+
+
+DEPLOYMENT CHECKLIST
+════════════════════
+
+Pre-Deployment
+──────────────
+□ SMARTTHINGS_LOCATION_ID configured in .env
+□ SMARTTHINGS_TOKEN valid and not expired
+□ ServiceContainer initializes successfully
+□ Unit tests passing
+□ Type checking passing (pnpm typecheck)
+
+Deployment
+──────────
+□ Build web: pnpm build:web
+□ Test locally: pnpm dev:web
+□ Verify /api/automations returns real data
+□ Verify /automations page displays real rules
+□ Toggle automation, verify API call succeeds
+□ Deploy to production
+
+Post-Deployment
+───────────────
+□ Automations page loads without errors
+□ Real SmartThings rules appear (not mock)
+□ Toggle switches work correctly
+□ Loading states show during fetch
+□ Error handling works
+□ Performance <500ms for list
+
+
+KEY FINDINGS
+════════════
+
+✅ Backend is COMPLETE and PRODUCTION-READY
+   • AutomationService fully implemented (579 lines)
+   • SmartThings Rules API fully integrated
+   • 5-minute caching with O(1) device indexing
+   • Retry logic with exponential backoff
+
+✅ Frontend is READY with mock data fallback
+   • automationStore.svelte.ts expects /api/automations
+   • Graceful degradation to mock data
+   • Toggle automation support built-in
+
+❌ Missing ONLY the integration layer
+   • SvelteKit API routes (/api/automations)
+   • Data transformation (Rule → Automation)
+   • Shared service module
+
+EFFORT ESTIMATE: 2-3 hours
+   • 1.5 hours implementation
+   • 0.5 hours testing
+   • 30 mins deployment verification
+
+
+RECOMMENDED NEXT STEPS
+══════════════════════
+
+1. Create /web/src/lib/server/transformers/ruleToAutomation.ts
+2. Create /web/src/lib/server/services.ts
+3. Create /web/src/routes/api/automations/+server.ts
+4. Create /web/src/routes/api/automations/[id]/toggle/+server.ts
+5. Remove mock data from automationStore.svelte.ts
+6. Test end-to-end with real SmartThings account
+7. Deploy and verify
+
+
+REFERENCES
+══════════
+
+Documentation
+─────────────
+• SmartThings Rules API: https://developer.smartthings.com/docs/api/public#tag/Rules
+• @smartthings/core-sdk: https://www.npmjs.com/package/@smartthings/core-sdk (v8.0.0)
+• SvelteKit API Routes: https://kit.svelte.dev/docs/routing#server
+
+Project Files
+─────────────
+• /src/services/AutomationService.ts - Backend service (579 lines)
+• /src/platforms/smartthings/SmartThingsAdapter.ts - Rules API integration
+• /src/mcp/tools/automation.ts - MCP automation tools (923 lines)
+• /web/src/lib/stores/automationStore.svelte.ts - Frontend store (254 lines)
+• /docs/research/smartthings-rules-api-automation-implementation-2025-11-29.md
+
+Research Documents
+──────────────────
+• /docs/research/smartthings-automations-implementation-plan-2025-12-02.md (THIS DOC)
+
+╚══════════════════════════════════════════════════════════════════════════════╝

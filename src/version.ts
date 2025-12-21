@@ -9,8 +9,8 @@ export const VERSION = '0.7.2';
 // Build metadata (updated by build scripts)
 export const BUILD_INFO = {
   version: VERSION,
-  buildDate: '2025-11-30T20:09:41Z',
-  gitCommit: 'aba4b21d47e15a468e2a0d292bff6043b528d1ae',
+  buildDate: '2025-12-06T16:38:12Z',
+  gitCommit: '10d53d75a3ba6ec28128cb299c6e34e221f63a61',
   gitBranch: 'main',
 } as const;
 

@@ -33,9 +33,10 @@
 
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import type { Room } from '$lib/stores/roomStore.svelte';
 
 	interface Props {
-		rooms: string[];
+		rooms: Room[]; // Changed from string[] to Room[] to support room ID filtering
 		types: string[];
 		manufacturers?: string[];
 		capabilities?: string[];
@@ -44,7 +45,7 @@
 
 	interface FilterState {
 		searchQuery: string;
-		selectedRoom: string | null;
+		selectedRoomId: string | null; // Changed from selectedRoom to selectedRoomId
 		selectedType: string | null;
 		selectedManufacturer: string | null;
 		selectedCapabilities: string[];
@@ -56,8 +57,10 @@
 	const urlParams = $derived($page.url.searchParams);
 
 	// Filter state - initialized from URL
+	// IMPORTANT: 'room' URL parameter now contains room ID (UUID), not room name
+	// This fixes the bug where RoomCard navigation passes room ID but filter expected room name
 	let searchQuery = $state(urlParams.get('search') || '');
-	let selectedRoom = $state<string | null>(urlParams.get('room') || null);
+	let selectedRoomId = $state<string | null>(urlParams.get('room') || null);
 	let selectedType = $state<string | null>(urlParams.get('type') || null);
 	let selectedManufacturer = $state<string | null>(urlParams.get('manufacturer') || null);
 	let selectedCapabilities = $state<string[]>([]);
@@ -81,6 +84,11 @@
 	 * - keepFocus: Maintains input focus vs. potential focus loss
 	 *
 	 * Performance: O(1) parameter construction, sub-millisecond URL update
+	 *
+	 * Room Filter Fix:
+	 * - Now stores room ID (UUID) in URL parameter, not room name
+	 * - Ensures consistency with RoomCard navigation
+	 * - User sees room name in dropdown, but ID is stored in URL
 	 */
 	function updateURL() {
 		// Clear any pending URL update
@@ -99,8 +107,9 @@
 				params.delete('search');
 			}
 
-			if (selectedRoom) {
-				params.set('room', selectedRoom);
+			// Store room ID (UUID) in URL parameter, not room name
+			if (selectedRoomId) {
+				params.set('room', selectedRoomId);
 			} else {
 				params.delete('room');
 			}
@@ -148,10 +157,11 @@
 
 	/**
 	 * Handle room selection
+	 * Now uses room ID (UUID) instead of room name
 	 */
 	function onRoomChange(event: Event) {
 		const target = event.target as HTMLSelectElement;
-		selectedRoom = target.value || null;
+		selectedRoomId = target.value || null;
 		emitFilterChange();
 		updateURL(); // Update URL immediately for dropdown changes (Ticket 1M-533)
 	}
@@ -182,7 +192,7 @@
 	 */
 	function clearFilters() {
 		searchQuery = '';
-		selectedRoom = null;
+		selectedRoomId = null;
 		selectedType = null;
 		selectedManufacturer = null;
 		selectedCapabilities = [];
@@ -194,11 +204,12 @@
 
 	/**
 	 * Emit filter change to parent
+	 * Now emits selectedRoomId instead of selectedRoom
 	 */
 	function emitFilterChange() {
 		onFilterChange({
 			searchQuery,
-			selectedRoom,
+			selectedRoomId,
 			selectedType,
 			selectedManufacturer,
 			selectedCapabilities
@@ -210,7 +221,7 @@
 	 */
 	let hasActiveFilters = $derived(
 		searchQuery.trim() !== '' ||
-			selectedRoom !== null ||
+			selectedRoomId !== null ||
 			selectedType !== null ||
 			selectedManufacturer !== null ||
 			selectedCapabilities.length > 0
@@ -231,15 +242,25 @@
 	 */
 	$effect(() => {
 		// Emit initial filter state from URL to parent
-		if (searchQuery || selectedRoom || selectedType || selectedManufacturer) {
+		if (searchQuery || selectedRoomId || selectedType || selectedManufacturer) {
 			console.log('[DeviceFilter] Initializing from URL:', {
 				searchQuery,
-				selectedRoom,
+				selectedRoomId,
 				selectedType,
 				selectedManufacturer
 			});
 			emitFilterChange();
 		}
+	});
+
+	/**
+	 * Get currently selected room name for display
+	 * Finds room name from room ID for user-friendly display
+	 */
+	const selectedRoomName = $derived.by(() => {
+		if (!selectedRoomId) return null;
+		const room = rooms.find((r) => r.roomId === selectedRoomId);
+		return room?.name ?? null;
 	});
 </script>
 
@@ -266,10 +287,10 @@
 			<label for="room-filter" class="label font-medium mb-2">
 				<span>Room</span>
 			</label>
-			<select id="room-filter" class="select" value={selectedRoom ?? ''} onchange={onRoomChange}>
+			<select id="room-filter" class="select" value={selectedRoomId ?? ''} onchange={onRoomChange}>
 				<option value="">All Rooms</option>
 				{#each rooms as room}
-					<option value={room}>{room}</option>
+					<option value={room.roomId}>{room.name}</option>
 				{/each}
 			</select>
 		</div>
@@ -325,8 +346,8 @@
 			{#if searchQuery.trim()}
 				<span class="badge variant-soft-primary ml-2">"{searchQuery}"</span>
 			{/if}
-			{#if selectedRoom}
-				<span class="badge variant-soft-secondary ml-2">Room: {selectedRoom}</span>
+			{#if selectedRoomName}
+				<span class="badge variant-soft-secondary ml-2">Room: {selectedRoomName}</span>
 			{/if}
 			{#if selectedType}
 				<span class="badge variant-soft-tertiary ml-2">Type: {selectedType}</span>

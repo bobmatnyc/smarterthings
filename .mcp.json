@@ -1,23 +1,40 @@
 {
   "mcpServers": {
-    "mcp-vector-search": {
-      "type": "stdio",
-      "command": "uv",
-      "args": [
-        "run",
-        "mcp-vector-search",
-        "mcp"
-      ],
-      "env": {
-        "MCP_ENABLE_FILE_WATCHING": "true"
-      }
-    },
     "kuzu-memory": {
       "type": "stdio",
       "command": "kuzu-memory",
       "args": [
         "mcp"
-      ]
+      ],
+      "env": {
+        "KUZU_MEMORY_PROJECT_ROOT": "/Users/masa/Projects/smarterthings",
+        "KUZU_MEMORY_DB": "/Users/masa/Projects/smarterthings/kuzu-memories"
+      }
+    },
+    "mcp-ticketer": {
+      "type": "stdio",
+      "command": "mcp-ticketer",
+      "args": [
+        "mcp",
+        "--path",
+        "/Users/masa/Projects/mcp-smarterthings"
+      ],
+      "env": {}
+    },
+    "mcp-vector-search": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/Users/masa/Projects/smarterthings",
+        "mcp-vector-search",
+        "mcp"
+      ],
+      "env": {
+        "PROJECT_ROOT": "/Users/masa/Projects/smarterthings",
+        "MCP_PROJECT_ROOT": "/Users/masa/Projects/smarterthings"
+      }
     }
   }
 }
