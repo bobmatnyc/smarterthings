@@ -338,6 +338,9 @@ export class SmartThingsOAuthService {
  * - r:devices:* - Read all devices
  * - x:devices:$ - Execute commands on user's own devices
  * - x:devices:* - Execute commands on all devices
+ * - r:locations:* - Read all locations (required for rooms)
+ * - r:scenes:* - Read all scenes
+ * - x:scenes:* - Execute scenes
  *
  * Note: SmartThings OAuth is strict about scope matching.
  * These must match the SmartApp configuration exactly.
@@ -347,4 +350,7 @@ export const DEFAULT_SCOPES = [
   'r:devices:*',
   'x:devices:$',
   'x:devices:*',
+  'r:locations:*',
+  'r:scenes:*',
+  'x:scenes:*',
 ];

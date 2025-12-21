@@ -23,7 +23,8 @@ export default defineConfig({
 				target: 'http://localhost:5182',
 				changeOrigin: true,
 			},
-			'/auth': {
+			// Only proxy OAuth API routes, not the SvelteKit /auth page
+			'/auth/smartthings': {
 				target: 'http://localhost:5182',
 				changeOrigin: true,
 			},
