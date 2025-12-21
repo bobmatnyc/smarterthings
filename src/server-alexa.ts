@@ -341,6 +341,13 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
   server.get('/health', async () => {
     const adapterInitialized = smartThingsAdapter !== null && smartThingsAdapter.isInitialized();
 
+    // Also check if OAuth tokens exist (user has authenticated even if adapter failed to init)
+    const tokenStorage = getTokenStorage();
+    const hasOAuthTokens = tokenStorage.hasTokens('default');
+
+    // Consider "initialized" if either adapter works OR tokens exist
+    const isConnected = adapterInitialized || hasOAuthTokens;
+
     return {
       status: 'healthy',
       service: 'mcp-smarterthings-alexa',
@@ -348,9 +355,13 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
       smartthings: {
-        initialized: adapterInitialized,
-        message: adapterInitialized
-          ? 'SmartThings connected'
+        initialized: isConnected,
+        adapterReady: adapterInitialized,
+        hasTokens: hasOAuthTokens,
+        message: isConnected
+          ? adapterInitialized
+            ? 'SmartThings connected and ready'
+            : 'SmartThings authenticated (adapter initializing...)'
           : 'SmartThings not configured - visit /auth/smartthings to connect',
       },
     };
