@@ -6,6 +6,15 @@ Welcome to the MCP SmartThings Server documentation. This directory contains all
 
 Getting started with the MCP SmartThings Server:
 
+### Installation & Core Setup
+- [Installation Guide](installation-guide.md) - Automated installation for agentic systems
+- [SmartApp OAuth Setup](SMARTAPP_SETUP.md) - Configure SmartThings OAuth integration
+
+### Device Integration Guides
+- [Lutron Setup Guide](LUTRON-SETUP.md) - Integrate Lutron Caseta, RadioRA 2, and HomeWorks QS lighting systems
+- [Brilliant Setup Guide](BRILLIANT-SETUP.md) - Connect Brilliant Control smart home panels
+
+### Platform Setup
 - [Alexa Custom Skill Quick Start](setup/ALEXA_CUSTOM_SKILL_QUICK_START.md) - Quick setup guide for Alexa integration
 - [Diagnostic Tools Guide](setup/DIAGNOSTIC_TOOLS_GUIDE.md) - Setup and usage of diagnostic tools
 - [ngrok Quick Start](setup/NGROK_QUICKSTART.md) - Quick setup for ngrok tunneling
@@ -15,6 +24,11 @@ Getting started with the MCP SmartThings Server:
 
 Detailed implementation documentation for developers:
 
+### Core Features
+- [OAuth2 SmartApp Implementation](implementation/OAUTH2_SMARTAPP_IMPLEMENTATION.md) - **Production-ready** OAuth2 authentication with comprehensive security hardening
+- [Scenes Migration to Automations API](implementation/SCENES_MIGRATION_TO_AUTOMATIONS_API.md) - Comprehensive migration guide from Rules to Scenes API
+
+### Integrations
 - [Alexa Custom Skill Implementation](implementation/ALEXA_CUSTOM_SKILL_IMPLEMENTATION.md) - Complete Alexa custom skill integration
 - [Chatbot Implementation](implementation/CHATBOT_IMPLEMENTATION.md) - Chatbot interface implementation
 - [Chatbot Section](implementation/chatbot-section.md) - Chatbot component documentation

@@ -1,12 +1,12 @@
 {
-  "name": "@bobmatnyc/mcp-smarterthings",
+  "name": "@bobmatnyc/smarterthings",
   "version": "0.7.2",
   "description": "Smarter Things - AI-powered LLM controller for SmartThings via Model Context Protocol (MCP)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "mcp-smarterthings": "./dist/cli.js"
+    "smarterthings": "./dist/cli.js"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

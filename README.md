@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6%2B-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
-[![Integration Tests](https://github.com/bobmatnyc/mcp-smarterthings/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/bobmatnyc/mcp-smarterthings/actions/workflows/integration-tests.yml)
+[![Integration Tests](https://github.com/bobmatnyc/smarterthings/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/bobmatnyc/smarterthings/actions/workflows/integration-tests.yml)
 
 ---
 
@@ -26,6 +26,38 @@
 - Voice control via Alexa with conversational AI (LLM-powered responses)
 - Manage devices across multiple platforms (SmartThings, Tuya, Lutron) with a single interface
 - Develop smart home applications with a type-safe, well-documented API
+
+---
+
+## 🔌 Supported Integrations
+
+### Smart Home Platforms
+
+- **SmartThings** - Primary platform with native support for 184+ device types
+- **Lutron** - Premium lighting and motorized shade control via SmartThings integration ([Setup Guide](docs/LUTRON-SETUP.md))
+- **Brilliant** - Smart home control panels with integrated switches, dimmers, and camera via SmartThings integration ([Setup Guide](docs/BRILLIANT-SETUP.md))
+- **Tuya** - Wide range of smart home devices with 96% capability coverage
+
+### Device Support
+
+The MCP SmartThings dashboard supports:
+
+- **Lighting** - Switches, dimmers, color bulbs (RGB/RGBW), color temperature control
+- **Shades & Blinds** - Motorized window coverings with position control (Lutron Serena, Sivoia QS)
+- **Climate** - Thermostats, temperature sensors, humidity sensors
+- **Security** - Locks, contact sensors, motion sensors, cameras
+- **Energy** - Smart plugs, power meters, energy monitoring
+- **Multi-Gang Panels** - Brilliant Control panels (2, 3, and 4-gang configurations)
+- **Scenes & Automation** - Cross-platform scene execution and scheduling
+
+### Integration Features
+
+- **Via SmartThings Hub** - Lutron and Brilliant devices integrate through SmartThings (no additional APIs required)
+- **Unified Control** - All devices appear in a single dashboard regardless of manufacturer
+- **Cross-Platform Automation** - Create automations that span multiple platforms
+- **Real-Time Status** - Live device status updates across all integrated platforms
+
+**Note:** Lutron and Brilliant require their respective bridges/panels and integration through the SmartThings mobile app. See individual setup guides for detailed instructions.
 
 ---
 
@@ -215,8 +247,8 @@ For development or manual setup:
 
 ```bash
 # Clone the repository
-git clone https://github.com/bobmatnyc/mcp-smarterthings
-cd mcp-smarterthings
+git clone https://github.com/bobmatnyc/smarterthings
+cd smarterthings
 
 # Install dependencies
 pnpm install
@@ -262,11 +294,40 @@ TRANSPORT_MODE=stdio
 pnpm build
 ```
 
-### 5. Run the Server
+### 5. Run the Development Environment
 
-**Development mode with auto-reload:**
+**Recommended: Full Stack Development (Backend + Frontend Web UI)**
+
+```bash
+# Start both backend (port 5182) and frontend (port 5181)
+./scripts/dev-start.sh
+
+# Or use npm/pnpm script
+pnpm start:dev
+```
+
+This will:
+- ✅ Start backend MCP server on port 5182
+- ✅ Start frontend web UI on port 5181
+- ✅ Configure proxy for API calls
+- ✅ Show combined logs
+- ✅ Auto-reload on code changes
+
+**Access Points:**
+- Frontend Web UI: http://localhost:5181
+- Backend API: http://localhost:5182/api
+- Backend Health: http://localhost:5182/health
+
+**Individual Server Startup:**
+
+Backend only (port 5182):
 ```bash
 pnpm dev
+```
+
+Frontend only (port 5181):
+```bash
+pnpm dev:web
 ```
 
 **Production mode:**
@@ -274,7 +335,13 @@ pnpm dev
 npm start
 ```
 
-The server will start with the configured transport mode (stdio or http).
+**Port Configuration:**
+
+Ports are locked to ensure consistency:
+- Backend: **5182** (configured in `.env.local` and `src/config/environment.ts`)
+- Frontend: **5181** (configured in `web/vite.config.ts`)
+
+See [docs/PORT-CONFIGURATION.md](docs/PORT-CONFIGURATION.md) for details or [docs/QUICK-START.md](docs/QUICK-START.md) for quick reference.
 
 ---
 
@@ -291,7 +358,7 @@ Configure Claude Desktop to use Smarter Things as an MCP server:
   "mcpServers": {
     "smartthings": {
       "command": "node",
-      "args": ["/absolute/path/to/mcp-smarterthings/dist/index.js"],
+      "args": ["/absolute/path/to/smarterthings/dist/index.js"],
       "env": {
         "SMARTTHINGS_PAT": "your_smartthings_token_here"
       }
@@ -893,7 +960,7 @@ For issues and questions:
 
 1. Check the [SmartThings API Documentation](https://developer.smartthings.com/docs/api/public)
 2. Review the [MCP SDK Documentation](https://modelcontextprotocol.io/)
-3. Search existing [GitHub Issues](https://github.com/bobmatnyc/mcp-smarterthings/issues)
+3. Search existing [GitHub Issues](https://github.com/bobmatnyc/smarterthings/issues)
 4. Open a new issue with detailed description and logs
 
 ---
