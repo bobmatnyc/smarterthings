@@ -282,12 +282,14 @@ export async function registerEventsRoutes(
     async (request: FastifyRequest, reply: FastifyReply) => {
       logger.info('[Events API] SSE client connected');
 
-      // Set SSE headers
+      // Set SSE headers (include CORS since raw.writeHead bypasses Fastify CORS plugin)
       reply.raw.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no', // Disable nginx buffering
+        'Access-Control-Allow-Origin': request.headers.origin || '*',
+        'Access-Control-Allow-Credentials': 'true',
       });
 
       // Add client to tracking set

@@ -429,15 +429,40 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
         capability,
       });
 
-      const duration = Date.now() - startTime;
-      logger.debug('Device list fetched', {
-        success: result.success,
-        count: result.success ? result.data.length : 0,
-        duration,
-      });
-
       if (result.success) {
-        return result;
+        // Transform DeviceInfo[] to UnifiedDevice[] with state enrichment
+        const deviceService = serviceContainer.getDeviceService();
+        const { toUnifiedDevice } = await import('./services/transformers/index.js');
+
+        const unifiedDevices = await Promise.all(
+          result.data.devices.map(async (deviceInfo: any) => {
+            try {
+              // Get device status for state enrichment
+              const status = await deviceService.getDeviceStatus(deviceInfo.deviceId);
+              // Transform to UnifiedDevice format with state
+              return toUnifiedDevice(deviceInfo, status);
+            } catch (error) {
+              // If status fetch fails, transform without state
+              logger.warn(`Failed to fetch status for device ${deviceInfo.deviceId}:`, error);
+              return toUnifiedDevice(deviceInfo);
+            }
+          })
+        );
+
+        const totalDuration = Date.now() - startTime;
+        logger.debug('Device list fetched and transformed', {
+          success: true,
+          count: unifiedDevices.length,
+          duration: totalDuration,
+        });
+
+        return {
+          success: true,
+          data: {
+            count: unifiedDevices.length,
+            devices: unifiedDevices,
+          },
+        };
       } else {
         return reply.code(500).send(result);
       }
@@ -1242,12 +1267,14 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
   server.get('/api/devices/events', async (request: FastifyRequest, reply: FastifyReply) => {
     logger.info('[SSE] New client connection');
 
-    // Set SSE headers
+    // Set SSE headers (include CORS since raw.writeHead bypasses Fastify CORS plugin)
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no', // Disable nginx buffering
+      'Access-Control-Allow-Origin': request.headers.origin || '*',
+      'Access-Control-Allow-Credentials': 'true',
     });
 
     // Add client to tracking set
@@ -1690,6 +1717,44 @@ async function initializeSmartThingsAdapter(): Promise<void> {
     // Reset adapter state
     smartThingsAdapter = null;
     serviceContainer = null;
+  }
+}
+
+/**
+ * Reinitialize SmartThings adapter after OAuth tokens are obtained.
+ * Called from OAuth callback after successful token exchange.
+ *
+ * This is necessary because the adapter may have been created at startup
+ * with no tokens, and needs to be recreated with valid OAuth tokens.
+ *
+ * @returns Promise that resolves when reinitialization is complete
+ */
+export async function reinitializeSmartThingsAdapter(): Promise<void> {
+  logger.info('Reinitializing SmartThings adapter after OAuth');
+
+  // Dispose existing adapter if any
+  if (smartThingsAdapter) {
+    try {
+      await smartThingsAdapter.dispose();
+    } catch (error) {
+      logger.warn('Error disposing existing adapter', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  // Reset state
+  smartThingsAdapter = null;
+  serviceContainer = null;
+  toolExecutor = null;
+
+  // Reinitialize with new tokens
+  await initializeSmartThingsAdapter();
+
+  if (smartThingsAdapter?.isInitialized()) {
+    logger.info('SmartThings adapter reinitialized successfully');
+  } else {
+    logger.warn('SmartThings adapter reinitialization did not complete');
   }
 }
 

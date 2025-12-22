@@ -8,12 +8,12 @@ export class ApiClient {
 	 * List all devices with optional filters
 	 *
 	 * @param filters Optional room and capability filters
-	 * @returns DirectResult with device list
+	 * @returns DirectResult with device list and metadata
 	 */
 	async getDevices(filters?: {
 		room?: string;
 		capability?: string;
-	}): Promise<DirectResult<UnifiedDevice[]>> {
+	}): Promise<DirectResult<{ count: number; devices: UnifiedDevice[] }>> {
 		const params = new URLSearchParams();
 		if (filters?.room) params.append('room', filters.room);
 		if (filters?.capability) params.append('capability', filters.capability);

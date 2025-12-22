@@ -61,11 +61,16 @@ export function connectDeviceSSE(store: ReturnType<typeof getDeviceStore>): () =
 			return;
 		}
 
+		// Reset heartbeat timer at start of each connection attempt
+		// This prevents the stale check from triggering immediately if previous attempts failed
+		lastHeartbeat = Date.now();
+
 		// Create new EventSource
 		try {
 			// Connect to actual SSE endpoint (backend /api/events/stream)
 			eventSource = new EventSource('http://localhost:5182/api/events/stream');
-			store.setSSEConnected(false);
+			// Note: Don't set sseConnected=false here - the onerror handler does that on failure.
+			// Setting it false before onopen fires causes "Reconnecting..." to flash incorrectly.
 
 			// Connection opened
 			eventSource.onopen = () => {
