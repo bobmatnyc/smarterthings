@@ -1,4 +1,8 @@
-import { SmartThingsClient, BearerTokenAuthenticator, InstalledAppStatus } from '@smartthings/core-sdk';
+import {
+  SmartThingsClient,
+  BearerTokenAuthenticator,
+  InstalledAppStatus,
+} from '@smartthings/core-sdk';
 import { environment } from '../config/environment.js';
 import { getTokenStorage } from '../storage/token-storage.js';
 import { OAuthTokenAuthenticator } from './oauth-authenticator.js';
@@ -189,7 +193,9 @@ export class SmartThingsService implements ISmartThingsService {
 
     // Fallback to PAT
     if (environment.SMARTTHINGS_PAT) {
-      this.client = new SmartThingsClient(new BearerTokenAuthenticator(environment.SMARTTHINGS_PAT));
+      this.client = new SmartThingsClient(
+        new BearerTokenAuthenticator(environment.SMARTTHINGS_PAT)
+      );
       logger.info('SmartThings client initialized with Personal Access Token', {
         authMethod: 'pat',
       });

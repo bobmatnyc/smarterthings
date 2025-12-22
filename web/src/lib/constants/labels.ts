@@ -29,7 +29,7 @@ export const APP_LABELS = {
 export const NAV_LABELS = {
 	rooms: 'Rooms',
 	devices: 'Devices',
-	automations: 'Automations',
+	automations: 'Scenes',
 	rules: 'Rules',
 	events: 'Events',
 	settings: 'Settings',

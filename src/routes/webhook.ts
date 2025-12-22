@@ -97,11 +97,7 @@ type WebhookRequest = z.infer<typeof WebhookRequestSchema>;
  * @param secret - HMAC secret key
  * @returns True if signature is valid
  */
-function verifyHmacSignature(
-  signature: string | undefined,
-  body: string,
-  secret: string
-): boolean {
+function verifyHmacSignature(signature: string | undefined, body: string, secret: string): boolean {
   if (!signature) {
     logger.warn('[Webhook] Missing X-ST-HMAC header');
     return false;
@@ -113,10 +109,7 @@ function verifyHmacSignature(
     const expectedSignature = hmac.digest('hex');
 
     // Constant-time comparison to prevent timing attacks
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
-    );
+    const isValid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
 
     if (!isValid) {
       logger.warn('[Webhook] Invalid HMAC signature', {
@@ -164,203 +157,202 @@ export async function registerWebhookRoutes(
    * - Events enqueued asynchronously
    * - Response does not wait for processing
    */
-  server.post(
-    '/webhook/smartthings',
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const startTime = Date.now();
+  server.post('/webhook/smartthings', async (request: FastifyRequest, reply: FastifyReply) => {
+    const startTime = Date.now();
 
+    try {
+      // Get HMAC signature from header
+      const signature = request.headers['x-st-hmac'] as string | undefined;
+
+      // Get raw body for signature verification
+      const rawBody = JSON.stringify(request.body);
+
+      // Verify HMAC signature
+      const clientSecret = environment.SMARTTHINGS_CLIENT_SECRET;
+      if (!clientSecret) {
+        logger.error('[Webhook] SMARTTHINGS_CLIENT_SECRET not configured');
+        return reply.code(500).send({
+          error: 'Webhook configuration error',
+        });
+      }
+
+      const isValidSignature = verifyHmacSignature(signature, rawBody, clientSecret);
+      if (!isValidSignature) {
+        logger.warn('[Webhook] Rejected request with invalid signature');
+        return reply.code(401).send({
+          error: 'Unauthorized',
+          message: 'Invalid HMAC signature',
+        });
+      }
+
+      // Validate request body
+      let webhookData: WebhookRequest;
       try {
-        // Get HMAC signature from header
-        const signature = request.headers['x-st-hmac'] as string | undefined;
-
-        // Get raw body for signature verification
-        const rawBody = JSON.stringify(request.body);
-
-        // Verify HMAC signature
-        const clientSecret = environment.SMARTTHINGS_CLIENT_SECRET;
-        if (!clientSecret) {
-          logger.error('[Webhook] SMARTTHINGS_CLIENT_SECRET not configured');
-          return reply.code(500).send({
-            error: 'Webhook configuration error',
-          });
-        }
-
-        const isValidSignature = verifyHmacSignature(signature, rawBody, clientSecret);
-        if (!isValidSignature) {
-          logger.warn('[Webhook] Rejected request with invalid signature');
-          return reply.code(401).send({
-            error: 'Unauthorized',
-            message: 'Invalid HMAC signature',
-          });
-        }
-
-        // Validate request body
-        let webhookData: WebhookRequest;
-        try {
-          webhookData = WebhookRequestSchema.parse(request.body);
-        } catch (validationError) {
-          logger.error('[Webhook] Invalid request body', {
-            error: validationError instanceof z.ZodError
+        webhookData = WebhookRequestSchema.parse(request.body);
+      } catch (validationError) {
+        logger.error('[Webhook] Invalid request body', {
+          error:
+            validationError instanceof z.ZodError
               ? validationError.errors
               : String(validationError),
+        });
+        return reply.code(400).send({
+          error: 'Bad Request',
+          message: 'Invalid webhook payload',
+        });
+      }
+
+      logger.debug('[Webhook] Received request', {
+        lifecycle: webhookData.lifecycle,
+      });
+
+      // Handle lifecycle events
+      switch (webhookData.lifecycle) {
+        case 'PING': {
+          // Health check - respond with challenge
+          const challenge = webhookData.pingData?.challenge;
+          if (!challenge) {
+            return reply.code(400).send({
+              error: 'Bad Request',
+              message: 'Missing challenge in PING request',
+            });
+          }
+
+          const duration = Date.now() - startTime;
+          logger.info('[Webhook] PING received', { duration });
+
+          return reply.code(200).send({
+            statusCode: 200,
+            pingData: {
+              challenge,
+            },
+          });
+        }
+
+        case 'CONFIRMATION': {
+          // Webhook registration - respond with confirmation URL
+          const confirmationUrl = webhookData.confirmationData?.confirmationUrl;
+          if (!confirmationUrl) {
+            return reply.code(400).send({
+              error: 'Bad Request',
+              message: 'Missing confirmationUrl',
+            });
+          }
+
+          const duration = Date.now() - startTime;
+          logger.info('[Webhook] CONFIRMATION received', {
+            appId: webhookData.confirmationData?.appId,
+            duration,
+          });
+
+          // Return confirmation (SmartThings will verify via confirmationUrl)
+          return reply.code(200).send({
+            statusCode: 200,
+            confirmationData: {
+              targetUrl: confirmationUrl,
+            },
+          });
+        }
+
+        case 'EVENT': {
+          // Device events - enqueue for async processing
+          const eventData = webhookData.eventData;
+          if (!eventData || !eventData.events || eventData.events.length === 0) {
+            logger.warn('[Webhook] EVENT lifecycle with no events');
+            return reply.code(200).send({
+              statusCode: 200,
+            });
+          }
+
+          const { installedApp, events } = eventData;
+
+          logger.info('[Webhook] EVENT received', {
+            eventCount: events.length,
+            locationId: installedApp.locationId,
+          });
+
+          // Enqueue each event to message queue
+          const enqueuePromises = events.map(async (event) => {
+            const smartHomeEvent: SmartHomeEvent = {
+              id: (event.eventId || crypto.randomUUID()) as EventId,
+              type: 'device_event',
+              source: 'webhook',
+              deviceId: event.deviceId as any,
+              locationId: installedApp.locationId as any,
+              eventType:
+                event.capability && event.attribute
+                  ? `${event.capability}.${event.attribute}`
+                  : undefined,
+              value: event.value,
+              timestamp: event.eventTime ? new Date(event.eventTime) : new Date(),
+              metadata: {
+                installedAppId: installedApp.installedAppId,
+                componentId: event.componentId,
+                valueType: event.valueType,
+                stateChange: event.stateChange,
+              },
+            };
+
+            // Save to event store (async, don't wait)
+            eventStore.saveEvent(smartHomeEvent).catch((error) => {
+              logger.error('[Webhook] Failed to save event to store', {
+                eventId: smartHomeEvent.id,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            });
+
+            // Enqueue to message queue for processing
+            await messageQueue.enqueue('device_event', smartHomeEvent);
+          });
+
+          // Wait for all events to be enqueued (fast operation < 50ms)
+          await Promise.all(enqueuePromises);
+
+          const duration = Date.now() - startTime;
+          logger.info('[Webhook] Events enqueued', {
+            count: events.length,
+            duration,
+          });
+
+          // Return acknowledgment
+          return reply.code(200).send({
+            statusCode: 200,
+          });
+        }
+
+        case 'UNINSTALL': {
+          // App uninstall notification
+          logger.info('[Webhook] UNINSTALL received');
+
+          // No action required - just acknowledge
+          return reply.code(200).send({
+            statusCode: 200,
+          });
+        }
+
+        default: {
+          logger.warn('[Webhook] Unknown lifecycle type', {
+            lifecycle: webhookData.lifecycle,
           });
           return reply.code(400).send({
             error: 'Bad Request',
-            message: 'Invalid webhook payload',
+            message: 'Unknown lifecycle type',
           });
         }
-
-        logger.debug('[Webhook] Received request', {
-          lifecycle: webhookData.lifecycle,
-        });
-
-        // Handle lifecycle events
-        switch (webhookData.lifecycle) {
-          case 'PING': {
-            // Health check - respond with challenge
-            const challenge = webhookData.pingData?.challenge;
-            if (!challenge) {
-              return reply.code(400).send({
-                error: 'Bad Request',
-                message: 'Missing challenge in PING request',
-              });
-            }
-
-            const duration = Date.now() - startTime;
-            logger.info('[Webhook] PING received', { duration });
-
-            return reply.code(200).send({
-              statusCode: 200,
-              pingData: {
-                challenge,
-              },
-            });
-          }
-
-          case 'CONFIRMATION': {
-            // Webhook registration - respond with confirmation URL
-            const confirmationUrl = webhookData.confirmationData?.confirmationUrl;
-            if (!confirmationUrl) {
-              return reply.code(400).send({
-                error: 'Bad Request',
-                message: 'Missing confirmationUrl',
-              });
-            }
-
-            const duration = Date.now() - startTime;
-            logger.info('[Webhook] CONFIRMATION received', {
-              appId: webhookData.confirmationData?.appId,
-              duration,
-            });
-
-            // Return confirmation (SmartThings will verify via confirmationUrl)
-            return reply.code(200).send({
-              statusCode: 200,
-              confirmationData: {
-                targetUrl: confirmationUrl,
-              },
-            });
-          }
-
-          case 'EVENT': {
-            // Device events - enqueue for async processing
-            const eventData = webhookData.eventData;
-            if (!eventData || !eventData.events || eventData.events.length === 0) {
-              logger.warn('[Webhook] EVENT lifecycle with no events');
-              return reply.code(200).send({
-                statusCode: 200,
-              });
-            }
-
-            const { installedApp, events } = eventData;
-
-            logger.info('[Webhook] EVENT received', {
-              eventCount: events.length,
-              locationId: installedApp.locationId,
-            });
-
-            // Enqueue each event to message queue
-            const enqueuePromises = events.map(async (event) => {
-              const smartHomeEvent: SmartHomeEvent = {
-                id: (event.eventId || crypto.randomUUID()) as EventId,
-                type: 'device_event',
-                source: 'webhook',
-                deviceId: event.deviceId as any,
-                locationId: installedApp.locationId as any,
-                eventType: event.capability && event.attribute
-                  ? `${event.capability}.${event.attribute}`
-                  : undefined,
-                value: event.value,
-                timestamp: event.eventTime ? new Date(event.eventTime) : new Date(),
-                metadata: {
-                  installedAppId: installedApp.installedAppId,
-                  componentId: event.componentId,
-                  valueType: event.valueType,
-                  stateChange: event.stateChange,
-                },
-              };
-
-              // Save to event store (async, don't wait)
-              eventStore.saveEvent(smartHomeEvent).catch((error) => {
-                logger.error('[Webhook] Failed to save event to store', {
-                  eventId: smartHomeEvent.id,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-              });
-
-              // Enqueue to message queue for processing
-              await messageQueue.enqueue('device_event', smartHomeEvent);
-            });
-
-            // Wait for all events to be enqueued (fast operation < 50ms)
-            await Promise.all(enqueuePromises);
-
-            const duration = Date.now() - startTime;
-            logger.info('[Webhook] Events enqueued', {
-              count: events.length,
-              duration,
-            });
-
-            // Return acknowledgment
-            return reply.code(200).send({
-              statusCode: 200,
-            });
-          }
-
-          case 'UNINSTALL': {
-            // App uninstall notification
-            logger.info('[Webhook] UNINSTALL received');
-
-            // No action required - just acknowledge
-            return reply.code(200).send({
-              statusCode: 200,
-            });
-          }
-
-          default: {
-            logger.warn('[Webhook] Unknown lifecycle type', {
-              lifecycle: webhookData.lifecycle,
-            });
-            return reply.code(400).send({
-              error: 'Bad Request',
-              message: 'Unknown lifecycle type',
-            });
-          }
-        }
-      } catch (error) {
-        const duration = Date.now() - startTime;
-        logger.error('[Webhook] Request handling failed', {
-          error: error instanceof Error ? error.message : String(error),
-          duration,
-        });
-
-        return reply.code(500).send({
-          error: 'Internal Server Error',
-          message: error instanceof Error ? error.message : 'Unknown error',
-        });
       }
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error('[Webhook] Request handling failed', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+
+      return reply.code(500).send({
+        error: 'Internal Server Error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
-  );
+  });
 
   logger.info('[Webhook] Routes registered: POST /webhook/smartthings');
 }

@@ -87,8 +87,7 @@ export function validatePreInstallation(
   } catch {
     result.valid = false;
     result.errors.push(
-      `No write permission for config directory: ${configDir}\n` +
-        `  Try: chmod u+w ${configDir}`
+      `No write permission for config directory: ${configDir}\n` + `  Try: chmod u+w ${configDir}`
     );
   }
 

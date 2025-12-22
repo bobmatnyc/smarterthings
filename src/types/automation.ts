@@ -16,12 +16,12 @@
  * device capability requirements and configuration options.
  */
 export type AutomationTemplate =
-  | 'motion_lights'        // Motion-activated lights
-  | 'door_notification'    // Door/window notifications
-  | 'temperature_control'  // Temperature-based HVAC control
-  | 'scheduled_action'     // Time-based scheduled actions
-  | 'sunrise_sunset'       // Sunrise/sunset triggers
-  | 'battery_alert';       // Low battery notifications
+  | 'motion_lights' // Motion-activated lights
+  | 'door_notification' // Door/window notifications
+  | 'temperature_control' // Temperature-based HVAC control
+  | 'scheduled_action' // Time-based scheduled actions
+  | 'sunrise_sunset' // Sunrise/sunset triggers
+  | 'battery_alert'; // Low battery notifications
 
 /**
  * Trigger type for automation conditions.

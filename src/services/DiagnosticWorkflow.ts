@@ -74,7 +74,12 @@ export interface DeviceHealthData {
  */
 export interface IssuePattern {
   /** Pattern type */
-  type: 'rapid_changes' | 'repeated_failures' | 'connectivity_gap' | 'automation_trigger' | 'normal';
+  type:
+    | 'rapid_changes'
+    | 'repeated_failures'
+    | 'connectivity_gap'
+    | 'automation_trigger'
+    | 'normal';
 
   /** Human-readable description */
   description: string;
@@ -587,7 +592,10 @@ export class DiagnosticWorkflow {
       }
 
       // 1M-288: Phase 2 - Add system-wide patterns to rich context
-      if (context.systemStatus.systemWidePatterns && context.systemStatus.systemWidePatterns.length > 0) {
+      if (
+        context.systemStatus.systemWidePatterns &&
+        context.systemStatus.systemWidePatterns.length > 0
+      ) {
         sections.push('\n**System-Wide Patterns**:');
         context.systemStatus.systemWidePatterns.forEach((pattern) => {
           const confidencePercent = (pattern.averageConfidence * 100).toFixed(0);
@@ -714,7 +722,9 @@ export class DiagnosticWorkflow {
     if (context.relatedIssues?.some((issue) => issue.type === 'connectivity_gap')) {
       recommendations.push('Evidence: Connectivity gaps detected in event history.');
       recommendations.push('Action: Check network stability and hub logs for connection issues.');
-      recommendations.push('Action: Verify device is within range of SmartThings hub or mesh network.');
+      recommendations.push(
+        'Action: Verify device is within range of SmartThings hub or mesh network.'
+      );
     }
 
     // Rapid changes and automation trigger recommendations
@@ -756,7 +766,9 @@ export class DiagnosticWorkflow {
         );
 
         for (const auto of context.identifiedAutomations) {
-          recommendations.push(`  - "${auto.ruleName}" (ID: ${auto.ruleId}, Status: ${auto.status || 'Unknown'})`);
+          recommendations.push(
+            `  - "${auto.ruleName}" (ID: ${auto.ruleId}, Status: ${auto.status || 'Unknown'})`
+          );
           recommendations.push(`    Role: ${auto.deviceRoles.join(', ')}`);
           recommendations.push(
             `    Action: Open SmartThings app → Automations → Search for "${auto.ruleName}" → Review and disable or adjust conditions`
@@ -793,9 +805,13 @@ export class DiagnosticWorkflow {
         recommendations.push(
           '⚠️ API Limitation: SmartThings API cannot identify specific automation. Manual investigation required.'
         );
-        recommendations.push('Action: Open SmartThings app → Automations → Search for rules affecting this device');
+        recommendations.push(
+          'Action: Open SmartThings app → Automations → Search for rules affecting this device'
+        );
         if (context.device) {
-          recommendations.push(`Observable pattern: Look for "${context.device.label}" as ACTION target (not trigger)`);
+          recommendations.push(
+            `Observable pattern: Look for "${context.device.label}" as ACTION target (not trigger)`
+          );
           recommendations.push(
             `Expected logic: "When [trigger condition], turn ${context.device.label} ON" or similar re-trigger behavior`
           );
@@ -810,7 +826,9 @@ export class DiagnosticWorkflow {
         recommendations.push(
           'Observable pattern: Device state changes rapidly after manual control (typical automation re-trigger signature).'
         );
-        recommendations.push('Action: Look for "when device turns off, turn back on" logic in automations');
+        recommendations.push(
+          'Action: Look for "when device turns off, turn back on" logic in automations'
+        );
       }
 
       // Automation loop warning (EVIDENCE: multiple rapid changes)
@@ -1613,7 +1631,9 @@ export class DiagnosticWorkflow {
         const patterns = patternResult.value;
 
         // Filter to high-confidence patterns (≥80%)
-        const highConfidencePatterns = patterns.filter((p) => p.confidence >= 0.8 && p.type !== 'normal');
+        const highConfidencePatterns = patterns.filter(
+          (p) => p.confidence >= 0.8 && p.type !== 'normal'
+        );
 
         // Format as issue descriptions
         for (const pattern of highConfidencePatterns) {

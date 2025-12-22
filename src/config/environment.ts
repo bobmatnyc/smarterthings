@@ -90,19 +90,17 @@ try {
   // Ticket 1M-601: Validate that at least one authentication method is available
   // Check if we have either OAuth tokens or PAT
   const hasOAuthCredentials =
-    config.SMARTTHINGS_CLIENT_ID &&
-    config.SMARTTHINGS_CLIENT_SECRET &&
-    config.TOKEN_ENCRYPTION_KEY;
+    config.SMARTTHINGS_CLIENT_ID && config.SMARTTHINGS_CLIENT_SECRET && config.TOKEN_ENCRYPTION_KEY;
   const hasPAT = !!config.SMARTTHINGS_PAT;
 
   if (!hasOAuthCredentials && !hasPAT) {
     // NOTE: console.error is acceptable here (writes to stderr)
     // This runs during module init before logger is available
     console.error('SmartThings authentication configuration error:');
+    console.error('  At least one authentication method is required:');
     console.error(
-      '  At least one authentication method is required:'
+      '  1. OAuth: Set SMARTTHINGS_CLIENT_ID, SMARTTHINGS_CLIENT_SECRET, TOKEN_ENCRYPTION_KEY'
     );
-    console.error('  1. OAuth: Set SMARTTHINGS_CLIENT_ID, SMARTTHINGS_CLIENT_SECRET, TOKEN_ENCRYPTION_KEY');
     console.error('     (Recommended - auto-refreshing tokens)');
     console.error('  2. PAT: Set SMARTTHINGS_PAT environment variable');
     console.error('     (Alternative - requires manual daily updates)');

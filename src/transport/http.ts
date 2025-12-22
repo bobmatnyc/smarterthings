@@ -29,7 +29,12 @@ export async function startHttpTransport(server: Server): Promise<void> {
   // CORS middleware - Allow frontend (localhost:5181) to access backend
   app.use(
     cors({
-      origin: ['http://localhost:5181', 'http://localhost:5182', 'http://127.0.0.1:5181', 'http://127.0.0.1:5182'],
+      origin: [
+        'http://localhost:5181',
+        'http://localhost:5182',
+        'http://127.0.0.1:5181',
+        'http://127.0.0.1:5182',
+      ],
       methods: ['GET', 'POST', 'OPTIONS'],
       credentials: true,
       allowedHeaders: ['Content-Type', 'Authorization'],
@@ -71,7 +76,7 @@ export async function startHttpTransport(server: Server): Promise<void> {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
     });
 
     // Add client to set

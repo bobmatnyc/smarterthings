@@ -107,10 +107,7 @@ export async function registerEventsRoutes(
    */
   server.get(
     '/api/events',
-    async (
-      request: FastifyRequest<{ Querystring: EventQuery }>,
-      reply: FastifyReply
-    ) => {
+    async (request: FastifyRequest<{ Querystring: EventQuery }>, reply: FastifyReply) => {
       const startTime = Date.now();
 
       try {
@@ -196,9 +193,7 @@ export async function registerEventsRoutes(
 
       try {
         const { deviceId } = request.params;
-        const limit = request.query.limit
-          ? Math.min(parseInt(request.query.limit, 10), 500)
-          : 50;
+        const limit = request.query.limit ? Math.min(parseInt(request.query.limit, 10), 500) : 50;
 
         logger.debug('[Events API] GET /api/events/device/:deviceId', {
           deviceId,
@@ -277,58 +272,55 @@ export async function registerEventsRoutes(
    * });
    * ```
    */
-  server.get(
-    '/api/events/stream',
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      logger.info('[Events API] SSE client connected');
+  server.get('/api/events/stream', async (request: FastifyRequest, reply: FastifyReply) => {
+    logger.info('[Events API] SSE client connected');
 
-      // Set SSE headers (include CORS since raw.writeHead bypasses Fastify CORS plugin)
-      reply.raw.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no', // Disable nginx buffering
-        'Access-Control-Allow-Origin': request.headers.origin || '*',
-        'Access-Control-Allow-Credentials': 'true',
-      });
+    // Set SSE headers (include CORS since raw.writeHead bypasses Fastify CORS plugin)
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no', // Disable nginx buffering
+      'Access-Control-Allow-Origin': request.headers.origin || '*',
+      'Access-Control-Allow-Credentials': 'true',
+    });
 
-      // Add client to tracking set
-      sseClients.add(reply);
+    // Add client to tracking set
+    sseClients.add(reply);
 
-      // Send initial connection event
-      const connectedEvent = {
-        timestamp: new Date().toISOString(),
-        message: 'Connected to event stream',
-      };
-      reply.raw.write(`event: connected\ndata: ${JSON.stringify(connectedEvent)}\n\n`);
+    // Send initial connection event
+    const connectedEvent = {
+      timestamp: new Date().toISOString(),
+      message: 'Connected to event stream',
+    };
+    reply.raw.write(`event: connected\ndata: ${JSON.stringify(connectedEvent)}\n\n`);
 
-      // Heartbeat interval (every 30 seconds)
-      const heartbeatInterval = setInterval(() => {
-        if (reply.raw.writable) {
-          const heartbeat = {
-            timestamp: new Date().toISOString(),
-            connectedClients: sseClients.size,
-          };
-          reply.raw.write(`event: heartbeat\ndata: ${JSON.stringify(heartbeat)}\n\n`);
-        } else {
-          clearInterval(heartbeatInterval);
-          sseClients.delete(reply);
-        }
-      }, 30000); // 30 seconds
-
-      // Cleanup on disconnect
-      request.raw.on('close', () => {
-        logger.info('[Events API] SSE client disconnected');
+    // Heartbeat interval (every 30 seconds)
+    const heartbeatInterval = setInterval(() => {
+      if (reply.raw.writable) {
+        const heartbeat = {
+          timestamp: new Date().toISOString(),
+          connectedClients: sseClients.size,
+        };
+        reply.raw.write(`event: heartbeat\ndata: ${JSON.stringify(heartbeat)}\n\n`);
+      } else {
         clearInterval(heartbeatInterval);
         sseClients.delete(reply);
-      });
+      }
+    }, 30000); // 30 seconds
 
-      // Keep connection alive
-      await new Promise<void>(() => {
-        // Connection stays open until client disconnects
-      });
-    }
-  );
+    // Cleanup on disconnect
+    request.raw.on('close', () => {
+      logger.info('[Events API] SSE client disconnected');
+      clearInterval(heartbeatInterval);
+      sseClients.delete(reply);
+    });
+
+    // Keep connection alive
+    await new Promise<void>(() => {
+      // Connection stays open until client disconnects
+    });
+  });
 
   /**
    * GET /api/events/stats - Get queue and event statistics

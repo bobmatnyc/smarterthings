@@ -51,17 +51,36 @@ const createAutomationSchema = z.object({
   name: z.string().min(1).max(100).describe('Rule name (max 100 characters)'),
   locationId: z.string().uuid().describe('Location UUID where rule will be created'),
   template: z
-    .enum(['motion_lights', 'door_notification', 'temperature_control', 'scheduled_action', 'sunrise_sunset', 'battery_alert'])
+    .enum([
+      'motion_lights',
+      'door_notification',
+      'temperature_control',
+      'scheduled_action',
+      'sunrise_sunset',
+      'battery_alert',
+    ])
     .describe('Template scenario to use'),
   triggerDeviceId: z.string().uuid().describe('Device UUID to monitor for triggers'),
-  triggerCapability: z.string().describe('Capability to monitor (e.g., motionSensor, contactSensor)'),
+  triggerCapability: z
+    .string()
+    .describe('Capability to monitor (e.g., motionSensor, contactSensor)'),
   triggerAttribute: z.string().describe('Attribute to watch (e.g., motion, contact)'),
-  triggerValue: z.union([z.string(), z.number(), z.boolean()]).describe('Value that triggers the rule'),
+  triggerValue: z
+    .union([z.string(), z.number(), z.boolean()])
+    .describe('Value that triggers the rule'),
   actionDeviceId: z.string().uuid().describe('Device UUID to control'),
   actionCapability: z.string().describe('Capability to use (e.g., switch, switchLevel)'),
   actionCommand: z.string().describe('Command to execute (e.g., on, off, setLevel)'),
-  actionArguments: z.array(z.union([z.string(), z.number(), z.boolean()])).optional().describe('Command arguments'),
-  delaySeconds: z.number().int().min(0).optional().describe('Optional delay before action execution (in seconds)'),
+  actionArguments: z
+    .array(z.union([z.string(), z.number(), z.boolean()]))
+    .optional()
+    .describe('Command arguments'),
+  delaySeconds: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe('Optional delay before action execution (in seconds)'),
   timeZoneId: z.string().optional().describe('Optional timezone override (Java timezone ID)'),
 });
 
@@ -75,11 +94,17 @@ const updateAutomationSchema = z.object({
   triggerDeviceId: z.string().uuid().optional().describe('Updated trigger device UUID'),
   triggerCapability: z.string().optional().describe('Updated trigger capability'),
   triggerAttribute: z.string().optional().describe('Updated trigger attribute'),
-  triggerValue: z.union([z.string(), z.number(), z.boolean()]).optional().describe('Updated trigger value'),
+  triggerValue: z
+    .union([z.string(), z.number(), z.boolean()])
+    .optional()
+    .describe('Updated trigger value'),
   actionDeviceId: z.string().uuid().optional().describe('Updated action device UUID'),
   actionCapability: z.string().optional().describe('Updated action capability'),
   actionCommand: z.string().optional().describe('Updated action command'),
-  actionArguments: z.array(z.union([z.string(), z.number(), z.boolean()])).optional().describe('Updated command arguments'),
+  actionArguments: z
+    .array(z.union([z.string(), z.number(), z.boolean()]))
+    .optional()
+    .describe('Updated command arguments'),
   delaySeconds: z.number().int().min(0).optional().describe('Updated delay in seconds'),
 });
 
@@ -96,7 +121,14 @@ const deleteAutomationSchema = z.object({
  */
 const testAutomationSchema = z.object({
   template: z
-    .enum(['motion_lights', 'door_notification', 'temperature_control', 'scheduled_action', 'sunrise_sunset', 'battery_alert'])
+    .enum([
+      'motion_lights',
+      'door_notification',
+      'temperature_control',
+      'scheduled_action',
+      'sunrise_sunset',
+      'battery_alert',
+    ])
     .describe('Template scenario to test'),
   triggerDeviceId: z.string().uuid().describe('Device UUID to test as trigger'),
   actionDeviceId: z.string().uuid().describe('Device UUID to test as action target'),
@@ -115,7 +147,14 @@ const executeAutomationSchema = z.object({
  */
 const getTemplateSchema = z.object({
   template: z
-    .enum(['motion_lights', 'door_notification', 'temperature_control', 'scheduled_action', 'sunrise_sunset', 'battery_alert'])
+    .enum([
+      'motion_lights',
+      'door_notification',
+      'temperature_control',
+      'scheduled_action',
+      'sunrise_sunset',
+      'battery_alert',
+    ])
     .optional()
     .describe('Specific template to get (omit to list all templates)'),
 });
@@ -538,7 +577,10 @@ export async function handleUpdateAutomation(input: McpToolInput): Promise<CallT
 
     // Get existing rule
     const automationService = serviceContainer.getAutomationService();
-    const existingRule = await automationService.getRule(parsed.ruleId, parsed.locationId as LocationId);
+    const existingRule = await automationService.getRule(
+      parsed.ruleId,
+      parsed.locationId as LocationId
+    );
 
     if (!existingRule) {
       return createMcpError(new Error(`Rule ${parsed.ruleId} not found`), 'NOT_FOUND');
@@ -554,7 +596,11 @@ export async function handleUpdateAutomation(input: McpToolInput): Promise<CallT
     // For now, we require full config for updates
 
     // Update rule via AutomationService
-    const updatedRule = await automationService.updateRule(parsed.ruleId, parsed.locationId as LocationId, updates);
+    const updatedRule = await automationService.updateRule(
+      parsed.ruleId,
+      parsed.locationId as LocationId,
+      updates
+    );
 
     logger.info('Automation updated via MCP', {
       ruleId: updatedRule.id,
@@ -693,9 +739,10 @@ export async function handleTestAutomation(input: McpToolInput): Promise<CallToo
       valid: errors.length === 0,
     });
 
-    const responseText = errors.length > 0
-      ? `Automation test FAILED\nTemplate: ${template.name}\nErrors:\n${errors.map(e => `- ${e}`).join('\n')}`
-      : `Automation test PASSED\nTemplate: ${template.name}\nTrigger device: ${triggerDevice.name}\nAction device: ${actionDevice.name}`;
+    const responseText =
+      errors.length > 0
+        ? `Automation test FAILED\nTemplate: ${template.name}\nErrors:\n${errors.map((e) => `- ${e}`).join('\n')}`
+        : `Automation test PASSED\nTemplate: ${template.name}\nTrigger device: ${triggerDevice.name}\nAction device: ${actionDevice.name}`;
 
     return createMcpResponse(responseText, {
       template: parsed.template,
@@ -779,7 +826,7 @@ export async function handleGetTemplate(input: McpToolInput): Promise<CallToolRe
         )
         .join('\n\n')}`;
     } else {
-      responseText = `Template: ${metadata.name}\n\nDescription: ${metadata.description}\n\nRequired Trigger Capabilities:\n${metadata.requiredTriggerCapabilities.map(c => `- ${c}`).join('\n') || 'None'}\n\nRequired Action Capabilities:\n${metadata.requiredActionCapabilities.map(c => `- ${c}`).join('\n') || 'None'}\n\nExample Configuration:\n${JSON.stringify(metadata.exampleConfig, null, 2)}`;
+      responseText = `Template: ${metadata.name}\n\nDescription: ${metadata.description}\n\nRequired Trigger Capabilities:\n${metadata.requiredTriggerCapabilities.map((c) => `- ${c}`).join('\n') || 'None'}\n\nRequired Action Capabilities:\n${metadata.requiredActionCapabilities.map((c) => `- ${c}`).join('\n') || 'None'}\n\nExample Configuration:\n${JSON.stringify(metadata.exampleConfig, null, 2)}`;
     }
 
     return createMcpResponse(responseText, {
@@ -823,7 +870,14 @@ export const automationTools = {
         locationId: { type: 'string', description: 'Location UUID' },
         template: {
           type: 'string',
-          enum: ['motion_lights', 'door_notification', 'temperature_control', 'scheduled_action', 'sunrise_sunset', 'battery_alert'],
+          enum: [
+            'motion_lights',
+            'door_notification',
+            'temperature_control',
+            'scheduled_action',
+            'sunrise_sunset',
+            'battery_alert',
+          ],
           description: 'Template scenario',
         },
         triggerDeviceId: { type: 'string', description: 'Trigger device UUID' },
@@ -837,7 +891,18 @@ export const automationTools = {
         delaySeconds: { type: 'number', description: 'Delay in seconds (optional)' },
         timeZoneId: { type: 'string', description: 'Timezone ID (optional)' },
       },
-      required: ['name', 'locationId', 'template', 'triggerDeviceId', 'triggerCapability', 'triggerAttribute', 'triggerValue', 'actionDeviceId', 'actionCapability', 'actionCommand'],
+      required: [
+        'name',
+        'locationId',
+        'template',
+        'triggerDeviceId',
+        'triggerCapability',
+        'triggerAttribute',
+        'triggerValue',
+        'actionDeviceId',
+        'actionCapability',
+        'actionCommand',
+      ],
     },
     handler: handleCreateAutomation,
   },
@@ -882,7 +947,14 @@ export const automationTools = {
       properties: {
         template: {
           type: 'string',
-          enum: ['motion_lights', 'door_notification', 'temperature_control', 'scheduled_action', 'sunrise_sunset', 'battery_alert'],
+          enum: [
+            'motion_lights',
+            'door_notification',
+            'temperature_control',
+            'scheduled_action',
+            'sunrise_sunset',
+            'battery_alert',
+          ],
           description: 'Template scenario to test',
         },
         triggerDeviceId: { type: 'string', description: 'Device UUID to test as trigger' },
@@ -911,7 +983,14 @@ export const automationTools = {
       properties: {
         template: {
           type: 'string',
-          enum: ['motion_lights', 'door_notification', 'temperature_control', 'scheduled_action', 'sunrise_sunset', 'battery_alert'],
+          enum: [
+            'motion_lights',
+            'door_notification',
+            'temperature_control',
+            'scheduled_action',
+            'sunrise_sunset',
+            'battery_alert',
+          ],
           description: 'Specific template to get (omit to list all)',
         },
       },

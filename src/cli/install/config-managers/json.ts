@@ -8,7 +8,12 @@
  * Used by: Claude Desktop, Claude Code, Gemini CLI
  */
 
-import type { ConfigChanges, JsonMcpConfig, FlatMcpConfig, AgenticSystem } from '../../../types/install.js';
+import type {
+  ConfigChanges,
+  JsonMcpConfig,
+  FlatMcpConfig,
+  AgenticSystem,
+} from '../../../types/install.js';
 import { BaseConfigManager } from './base.js';
 
 /**
@@ -178,9 +183,6 @@ export function createGeminiCliManager(
 /**
  * Create JSON config manager for Auggie (flat structure).
  */
-export function createAuggieManager(
-  system: AgenticSystem,
-  packagePath: string
-): JsonConfigManager {
+export function createAuggieManager(system: AgenticSystem, packagePath: string): JsonConfigManager {
   return new JsonConfigManager(system, packagePath, true); // Use flat structure
 }

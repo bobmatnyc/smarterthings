@@ -24,7 +24,10 @@ import { expandHome, getPlatformConfigPath, isCommandAvailable, isDirectory } fr
  *
  * Design: Centralized system metadata for easy maintenance
  */
-const SYSTEM_DEFINITIONS: Record<SystemName, Omit<AgenticSystem, 'detected' | 'detectedConfigPath'>> = {
+const SYSTEM_DEFINITIONS: Record<
+  SystemName,
+  Omit<AgenticSystem, 'detected' | 'detectedConfigPath'>
+> = {
   'claude-desktop': {
     name: 'claude-desktop',
     displayName: 'Claude Desktop',
@@ -44,7 +47,7 @@ const SYSTEM_DEFINITIONS: Record<SystemName, Omit<AgenticSystem, 'detected' | 'd
     configFormat: 'json',
     detectCommand: 'claude',
   },
-  'codex': {
+  codex: {
     name: 'codex',
     displayName: 'Codex',
     configPath: '~/.codex/config.toml',
@@ -58,7 +61,7 @@ const SYSTEM_DEFINITIONS: Record<SystemName, Omit<AgenticSystem, 'detected' | 'd
     configFormat: 'json',
     detectCommand: 'gemini',
   },
-  'auggie': {
+  auggie: {
     name: 'auggie',
     displayName: 'Auggie',
     configPath: '~/.auggie/servers.json',

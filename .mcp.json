@@ -19,7 +19,11 @@
         "--path",
         "/Users/masa/Projects/mcp-smarterthings"
       ],
-      "env": {}
+      "env": {
+        "MCP_TICKETER_ADAPTER": "linear",
+        "LINEAR_API_KEY": "REDACTED_LINEAR_API_KEY",
+        "LINEAR_TEAM_KEY": "1M"
+      }
     },
     "mcp-vector-search": {
       "type": "stdio",

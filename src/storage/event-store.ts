@@ -25,7 +25,12 @@
 
 import Database from 'better-sqlite3';
 import logger from '../utils/logger.js';
-import type { SmartHomeEvent, EventId, SmartHomeEventType, EventSource } from '../queue/MessageQueue.js';
+import type {
+  SmartHomeEvent,
+  EventId,
+  SmartHomeEventType,
+  EventSource,
+} from '../queue/MessageQueue.js';
 import type { DeviceId, LocationId } from '../types/smartthings.js';
 
 /**
@@ -267,14 +272,7 @@ export class EventStore {
    */
   async getEvents(filters: EventFilters = {}): Promise<SmartHomeEvent[]> {
     try {
-      const {
-        type,
-        source,
-        deviceId,
-        since,
-        limit = 50,
-        offset = 0,
-      } = filters;
+      const { type, source, deviceId, since, limit = 50, offset = 0 } = filters;
 
       // Build WHERE clauses
       const whereClauses: string[] = [];
@@ -302,9 +300,7 @@ export class EventStore {
       }
 
       // Build query
-      const whereClause = whereClauses.length > 0
-        ? `WHERE ${whereClauses.join(' AND ')}`
-        : '';
+      const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
       const query = `
         SELECT * FROM events
@@ -405,9 +401,7 @@ export class EventStore {
         params.push(sinceTimestamp);
       }
 
-      const whereClause = whereClauses.length > 0
-        ? `WHERE ${whereClauses.join(' AND ')}`
-        : '';
+      const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
       const query = `SELECT COUNT(*) as count FROM events ${whereClause}`;
 

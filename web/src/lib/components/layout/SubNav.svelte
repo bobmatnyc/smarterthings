@@ -36,7 +36,7 @@
 	const navItems: NavItem[] = [
 		{ label: 'Rooms', href: '/', icon: 'home' },
 		{ label: 'Devices', href: '/devices', icon: 'devices' },
-		{ label: 'Automations', href: '/automations', icon: 'automation' },
+		{ label: 'Scenes', href: '/automations', icon: 'automation' },
 		{ label: 'Rules', href: '/rules', icon: 'rules' },
 		{ label: 'Events', href: '/events', icon: 'events' }
 	];

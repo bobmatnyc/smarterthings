@@ -67,7 +67,7 @@
 					<line x1="12" y1="16" x2="12.01" y2="16"></line>
 				</svg>
 			</div>
-			<h2 class="empty-title">Failed to Load Automations</h2>
+			<h2 class="empty-title">Failed to Load Scenes</h2>
 			<p class="empty-description">{scenesStore.error}</p>
 			<button class="retry-button" onclick={() => scenesStore.loadScenes()}>
 				Try Again
@@ -87,10 +87,10 @@
 					<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
 				</svg>
 			</div>
-			<h2 class="empty-title">No Automations Found</h2>
+			<h2 class="empty-title">No Scenes Found</h2>
 			<p class="empty-description">
-				Create automations to control your devices automatically based on time, location, or device
-				states.
+				Scenes let you control multiple devices at once with a single tap.
+				Create scenes in the SmartThings app.
 			</p>
 			<button class="create-button">
 				<svg
@@ -110,7 +110,7 @@
 		<!-- Header with Stats and Create Button -->
 		<div class="automations-header">
 			<div class="header-content">
-				<h2 class="section-title">Automations</h2>
+				<h2 class="section-title">Scenes</h2>
 				<div class="automations-stats">
 					<span class="stat-item">{scenesStore.stats.total} total</span>
 					<span class="stat-divider">•</span>

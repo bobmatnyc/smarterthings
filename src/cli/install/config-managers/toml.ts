@@ -109,9 +109,6 @@ export class TomlConfigManager extends BaseConfigManager {
 /**
  * Create TOML config manager for Codex.
  */
-export function createCodexManager(
-  system: AgenticSystem,
-  packagePath: string
-): TomlConfigManager {
+export function createCodexManager(system: AgenticSystem, packagePath: string): TomlConfigManager {
   return new TomlConfigManager(system, packagePath);
 }

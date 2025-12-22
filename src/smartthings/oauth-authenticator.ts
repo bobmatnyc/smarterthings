@@ -54,9 +54,7 @@ export class OAuthTokenAuthenticator extends BearerTokenAuthenticator {
     // Get initial token from storage (synchronous)
     const initialToken = tokenStorage.getTokens(userId);
     if (!initialToken) {
-      throw new Error(
-        'No OAuth token available. Please authenticate via /auth/smartthings'
-      );
+      throw new Error('No OAuth token available. Please authenticate via /auth/smartthings');
     }
 
     // Initialize parent with access token
@@ -92,9 +90,7 @@ export class OAuthTokenAuthenticator extends BearerTokenAuthenticator {
     const tokens = this.tokenStorage.getTokens(this.userId);
 
     if (!tokens) {
-      throw new Error(
-        'OAuth token not found in storage. Please re-authenticate.'
-      );
+      throw new Error('OAuth token not found in storage. Please re-authenticate.');
     }
 
     // Check if token expires in < 5 minutes (300 seconds)
@@ -155,14 +151,10 @@ export class OAuthTokenAuthenticator extends BearerTokenAuthenticator {
 
     try {
       // Call SmartThings OAuth API to refresh
-      const newTokens = await this.oauthService.refreshAccessToken(
-        tokens.refreshToken
-      );
+      const newTokens = await this.oauthService.refreshAccessToken(tokens.refreshToken);
 
       // Calculate new expiry timestamp
-      const expiresAt = SmartThingsOAuthService.calculateExpiryTimestamp(
-        newTokens.expires_in
-      );
+      const expiresAt = SmartThingsOAuthService.calculateExpiryTimestamp(newTokens.expires_in);
 
       // Store refreshed tokens (synchronous)
       this.tokenStorage.storeTokens(

@@ -192,9 +192,9 @@ export class SmartThingsAdapter extends EventEmitter implements IDeviceAdapter {
         });
       }
 
-      // Validate connection with a test API call
+      // Validate connection with a test API call (using devices, not locations, to work with device-only scopes)
       await retryWithBackoff(async () => {
-        await this.client!.locations.list();
+        await this.client!.devices.list();
       });
 
       this.initialized = true;

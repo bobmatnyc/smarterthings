@@ -429,7 +429,9 @@ describe.skipIf(process.env['CI'] === 'true')('DiagnosticWorkflow Integration Te
       if (report.diagnosticContext.relatedIssues) {
         console.log('\nDetected Patterns:');
         report.diagnosticContext.relatedIssues.forEach((pattern) => {
-          console.log(`  - ${pattern.type}: ${pattern.description} (${(pattern.confidence * 100).toFixed(0)}%)`);
+          console.log(
+            `  - ${pattern.type}: ${pattern.description} (${(pattern.confidence * 100).toFixed(0)}%)`
+          );
         });
       }
 
@@ -564,7 +566,9 @@ describe.skipIf(process.env['CI'] === 'true')('DiagnosticWorkflow Integration Te
 
       console.log(`Workflow execution: ${workflowTime}ms`);
       console.log(`Target: <500ms`);
-      console.log(`Result: ${workflowTime < 500 ? '✅ PASS' : '⚠️ WARN (acceptable in integration tests)'}`);
+      console.log(
+        `Result: ${workflowTime < 500 ? '✅ PASS' : '⚠️ WARN (acceptable in integration tests)'}`
+      );
 
       // Log breakdown
       console.log('\nData Points Gathered:');
@@ -648,9 +652,15 @@ describe.skipIf(process.env['CI'] === 'true')('DiagnosticWorkflow Integration Te
       // Verify rich context includes all sections
       expect(report.richContext).toContain('System Status Overview');
       console.log('\nRich Context Sections:');
-      console.log(`  - System Status Overview: ${report.richContext.includes('System Status Overview') ? '✅' : '❌'}`);
-      console.log(`  - Recent Issues: ${report.richContext.includes('Recent Issues') ? '✅' : '❌'}`);
-      console.log(`  - System-Wide Patterns: ${report.richContext.includes('System-Wide Patterns') ? '✅' : '❌'}`);
+      console.log(
+        `  - System Status Overview: ${report.richContext.includes('System Status Overview') ? '✅' : '❌'}`
+      );
+      console.log(
+        `  - Recent Issues: ${report.richContext.includes('Recent Issues') ? '✅' : '❌'}`
+      );
+      console.log(
+        `  - System-Wide Patterns: ${report.richContext.includes('System-Wide Patterns') ? '✅' : '❌'}`
+      );
 
       console.log('\nEnd-to-end system status: ✅');
     },

@@ -895,10 +895,7 @@ export class ToolExecutor {
         locationId = locationsResult.data.locations[0].locationId;
       }
 
-      const result = await automationService.executeRule(
-        params.ruleId,
-        locationId as LocationId
-      );
+      const result = await automationService.executeRule(params.ruleId, locationId as LocationId);
 
       return {
         success: true,

@@ -71,9 +71,7 @@ export class TokenStorage {
 
     // Derive encryption key from environment variable
     if (!environment.TOKEN_ENCRYPTION_KEY) {
-      throw new Error(
-        'TOKEN_ENCRYPTION_KEY environment variable is required for token storage'
-      );
+      throw new Error('TOKEN_ENCRYPTION_KEY environment variable is required for token storage');
     }
 
     this.encryptionKey = crypto.scryptSync(

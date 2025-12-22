@@ -105,7 +105,10 @@ interface SmartBridge extends EventEmitter {
   getZoneStatus(zoneId: string): Promise<number>;
   executeScene(sceneId: string): Promise<void>;
   on(event: 'zoneStatus', listener: (zoneId: string, level: number) => void): this;
-  on(event: 'buttonPress', listener: (deviceId: string, button: number, action: string) => void): this;
+  on(
+    event: 'buttonPress',
+    listener: (deviceId: string, button: number, action: string) => void
+  ): this;
   on(event: 'occupancy', listener: (sensorId: string, occupied: boolean) => void): this;
   on(event: 'error', listener: (error: Error) => void): this;
   on(event: 'close', listener: () => void): this;
@@ -1040,10 +1043,9 @@ export class LutronAdapter extends EventEmitter implements IDeviceAdapter {
         areas: this.areas.size,
       });
     } catch (error) {
-      throw new NetworkError(
-        `Failed to load device tree from Smart Bridge`,
-        { platform: this.platform }
-      );
+      throw new NetworkError(`Failed to load device tree from Smart Bridge`, {
+        platform: this.platform,
+      });
     }
   }
 
@@ -1105,9 +1107,7 @@ export class LutronAdapter extends EventEmitter implements IDeviceAdapter {
       zone.level = normalizeLevel(level);
 
       // Emit state change event
-      const device = Array.from(this.devices.values()).find(
-        (d) => d.zone && d.zone.id === zoneId
-      );
+      const device = Array.from(this.devices.values()).find((d) => d.zone && d.zone.id === zoneId);
 
       if (device) {
         this.emitStateChangeEvent(device, { oldLevel, newLevel: zone.level });

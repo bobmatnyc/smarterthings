@@ -363,7 +363,12 @@ export class AgentSyncState {
    * });
    * ```
    */
-  trackFile(sourceId: string, filePath: string, contentSha: string, options?: FileTrackOptions): void {
+  trackFile(
+    sourceId: string,
+    filePath: string,
+    contentSha: string,
+    options?: FileTrackOptions
+  ): void {
     try {
       const stmt = this.getStatement('trackFile', FileQueries.TRACK_FILE);
       stmt.run(
@@ -509,7 +514,11 @@ export class AgentSyncState {
         result.durationMs
       );
 
-      logger.debug('Sync recorded', { sourceId, status: result.status, durationMs: result.durationMs });
+      logger.debug('Sync recorded', {
+        sourceId,
+        status: result.status,
+        durationMs: result.durationMs,
+      });
     } catch (error) {
       throw new AgentSyncError(
         `Failed to record sync: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -695,14 +704,18 @@ export class AgentSyncState {
    */
   private validateSchema(): void {
     // Check if sources table exists
-    const sourcesExists = this.db
-      .prepare(SchemaQueries.TABLE_EXISTS)
-      .get('sources') as { name: string } | undefined;
+    const sourcesExists = this.db.prepare(SchemaQueries.TABLE_EXISTS).get('sources') as
+      | { name: string }
+      | undefined;
 
     if (!sourcesExists) {
-      throw new AgentSyncError('Database schema invalid: sources table not found', 'SCHEMA_VERSION_MISMATCH', {
-        dbPath: this.dbPath,
-      });
+      throw new AgentSyncError(
+        'Database schema invalid: sources table not found',
+        'SCHEMA_VERSION_MISMATCH',
+        {
+          dbPath: this.dbPath,
+        }
+      );
     }
 
     // Validate schema version (if schema_metadata table exists)
@@ -786,7 +799,9 @@ export class AgentSyncState {
    */
   private getSchemaVersion(): number {
     try {
-      const result = this.db.prepare(SchemaQueries.GET_SCHEMA_VERSION).get() as { value: string } | undefined;
+      const result = this.db.prepare(SchemaQueries.GET_SCHEMA_VERSION).get() as
+        | { value: string }
+        | undefined;
       return result ? parseInt(result.value, 10) : 1;
     } catch {
       return 1; // Default to version 1 if table doesn't exist

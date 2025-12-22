@@ -44,9 +44,8 @@ export function createMcpError(error: unknown, code: string): McpErrorResponse {
 
     // Include field names in error message for better UX
     const fieldNames = validationErrors.map((e) => e.path).filter(Boolean);
-    message = fieldNames.length > 0
-      ? `Validation error: ${fieldNames.join(', ')}`
-      : 'Validation error';
+    message =
+      fieldNames.length > 0 ? `Validation error: ${fieldNames.join(', ')}` : 'Validation error';
 
     details = { validationErrors };
   } else if (error instanceof Error) {

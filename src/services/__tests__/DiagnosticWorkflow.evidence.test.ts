@@ -26,11 +26,7 @@ import type { AutomationService } from '../AutomationService.js';
 import type { ServiceContainer } from '../ServiceContainer.js';
 
 // Mock device factory
-function createMockDevice(
-  id: string,
-  label: string,
-  manufacturer?: string
-): UnifiedDevice {
+function createMockDevice(id: string, label: string, manufacturer?: string): UnifiedDevice {
   return {
     id: `smartthings:${id}` as any, // Universal device ID format
     platform: 'smartthings',
@@ -211,7 +207,11 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
         metadata: {
           totalCount: 2,
           hasMore: false,
-          dateRange: { earliest: mockEvents[0]!.time, latest: mockEvents[1]!.time, durationMs: 3000 },
+          dateRange: {
+            earliest: mockEvents[0]!.time,
+            latest: mockEvents[1]!.time,
+            durationMs: 3000,
+          },
           appliedFilters: {},
           reachedRetentionLimit: false,
         },
@@ -246,7 +246,10 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
         requiresDiagnostics: true,
       };
 
-      const report = await workflow.executeDiagnosticWorkflow(classification, 'why is light weird?');
+      const report = await workflow.executeDiagnosticWorkflow(
+        classification,
+        'why is light weird?'
+      );
 
       // MUST NOT recommend motion sensor (no motion sensor evidence)
       expect(report.recommendations.some((r) => r.toLowerCase().includes('motion'))).toBe(false);
@@ -255,9 +258,7 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
       expect(report.recommendations.length).toBeGreaterThan(0);
 
       // MUST recommend checking automations (since pattern detected)
-      expect(
-        report.recommendations.some((r) => r.toLowerCase().includes('automation'))
-      ).toBe(true);
+      expect(report.recommendations.some((r) => r.toLowerCase().includes('automation'))).toBe(true);
     });
 
     it('should recommend motion sensor check ONLY when motion sensor in automation evidence', async () => {
@@ -279,7 +280,11 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
         metadata: {
           totalCount: 2,
           hasMore: false,
-          dateRange: { earliest: mockEvents[0]!.time, latest: mockEvents[1]!.time, durationMs: 2000 },
+          dateRange: {
+            earliest: mockEvents[0]!.time,
+            latest: mockEvents[1]!.time,
+            durationMs: 2000,
+          },
           appliedFilters: {},
           reachedRetentionLimit: false,
         },
@@ -314,7 +319,10 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
         requiresDiagnostics: true,
       };
 
-      const report = await workflow.executeDiagnosticWorkflow(classification, 'hallway light issue');
+      const report = await workflow.executeDiagnosticWorkflow(
+        classification,
+        'hallway light issue'
+      );
 
       // Debug: Check if automation data was integrated
       expect(report.diagnosticContext.identifiedAutomations).toBeDefined();
@@ -356,7 +364,11 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
         metadata: {
           totalCount: 2,
           hasMore: false,
-          dateRange: { earliest: mockEvents[0]!.time, latest: mockEvents[1]!.time, durationMs: 2000 },
+          dateRange: {
+            earliest: mockEvents[0]!.time,
+            latest: mockEvents[1]!.time,
+            durationMs: 2000,
+          },
           appliedFilters: {},
           reachedRetentionLimit: false,
         },
@@ -398,7 +410,11 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
         metadata: {
           totalCount: 2,
           hasMore: false,
-          dateRange: { earliest: mockEvents[0]!.time, latest: mockEvents[1]!.time, durationMs: 2000 },
+          dateRange: {
+            earliest: mockEvents[0]!.time,
+            latest: mockEvents[1]!.time,
+            durationMs: 2000,
+          },
           appliedFilters: {},
           reachedRetentionLimit: false,
         },
@@ -441,7 +457,11 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
         metadata: {
           totalCount: 2,
           hasMore: false,
-          dateRange: { earliest: mockEvents[0]!.time, latest: mockEvents[1]!.time, durationMs: 2000 },
+          dateRange: {
+            earliest: mockEvents[0]!.time,
+            latest: mockEvents[1]!.time,
+            durationMs: 2000,
+          },
           appliedFilters: {},
           reachedRetentionLimit: false,
         },
@@ -495,7 +515,11 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
         metadata: {
           totalCount: 2,
           hasMore: false,
-          dateRange: { earliest: mockEvents[0]!.time, latest: mockEvents[1]!.time, durationMs: 2000 },
+          dateRange: {
+            earliest: mockEvents[0]!.time,
+            latest: mockEvents[1]!.time,
+            durationMs: 2000,
+          },
           appliedFilters: {},
           reachedRetentionLimit: false,
         },
@@ -515,7 +539,9 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
 
       // MUST explicitly state API limitation
       expect(
-        report.recommendations.some((r) => r.includes('API Limitation') || r.includes('API limitation'))
+        report.recommendations.some(
+          (r) => r.includes('API Limitation') || r.includes('API limitation')
+        )
       ).toBe(true);
 
       // MUST provide manual investigation guidance
@@ -548,7 +574,11 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
         metadata: {
           totalCount: 2,
           hasMore: false,
-          dateRange: { earliest: mockEvents[0]!.time, latest: mockEvents[1]!.time, durationMs: 1000 },
+          dateRange: {
+            earliest: mockEvents[0]!.time,
+            latest: mockEvents[1]!.time,
+            durationMs: 1000,
+          },
           appliedFilters: {},
           reachedRetentionLimit: false,
         },
@@ -568,9 +598,9 @@ describe('DiagnosticWorkflow - Evidence-Based Recommendations (1M-345)', () => {
 
       // Should report high confidence with evidence
       expect(report.recommendations.some((r) => r.includes('Evidence:'))).toBe(true);
-      expect(
-        report.recommendations.some((r) => r.includes('%') && r.includes('confidence'))
-      ).toBe(true);
+      expect(report.recommendations.some((r) => r.includes('%') && r.includes('confidence'))).toBe(
+        true
+      );
       expect(
         report.recommendations.some((r) => r.toLowerCase().includes('observable pattern'))
       ).toBe(true);

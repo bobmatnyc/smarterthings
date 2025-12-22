@@ -122,9 +122,12 @@ let toolExecutor: ToolExecutor | null = null;
  */
 function getToolExecutor(): ToolExecutor {
   if (!serviceContainer) {
-    throw new ConfigurationError('SmartThings not configured. Please authenticate via /auth/smartthings', {
-      hint: 'Visit /auth/smartthings to connect your SmartThings account',
-    });
+    throw new ConfigurationError(
+      'SmartThings not configured. Please authenticate via /auth/smartthings',
+      {
+        hint: 'Visit /auth/smartthings to connect your SmartThings account',
+      }
+    );
   }
 
   if (!toolExecutor) {
@@ -329,7 +332,9 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
   // ====================================================================
   try {
     await registerOAuthRoutes(server);
-    logger.info('OAuth routes registered successfully (available before SmartThings initialization)');
+    logger.info(
+      'OAuth routes registered successfully (available before SmartThings initialization)'
+    );
   } catch (error) {
     // OAuth routes are optional - if not configured, log warning but don't fail
     logger.warn('OAuth routes not registered (optional feature)', {
@@ -767,9 +772,8 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
       }
 
       const rooms = roomsResult.data?.rooms || [];
-      const devices = devicesResult.success && devicesResult.data?.devices
-        ? devicesResult.data.devices
-        : [];
+      const devices =
+        devicesResult.success && devicesResult.data?.devices ? devicesResult.data.devices : [];
 
       // Calculate device count for each room
       const roomDeviceCounts = new Map<string, number>();
@@ -1131,7 +1135,6 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 
       // Return 204 No Content on success (REST best practice for DELETE)
       return reply.status(204).send();
-
     } catch (error) {
       logger.error('[API] Error deleting rule:', error);
 
@@ -1271,7 +1274,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'X-Accel-Buffering': 'no', // Disable nginx buffering
       'Access-Control-Allow-Origin': request.headers.origin || '*',
       'Access-Control-Allow-Credentials': 'true',
@@ -1337,7 +1340,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
     try {
       const { message, mode } = request.body as {
         message: string;
-        mode?: 'normal' | 'troubleshooting'
+        mode?: 'normal' | 'troubleshooting';
       };
 
       // Validate message
@@ -1346,8 +1349,8 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
           success: false,
           error: {
             code: 'INVALID_REQUEST',
-            message: 'Message is required and must be a string'
-          }
+            message: 'Message is required and must be a string',
+          },
         };
         return reply.code(400).send(result);
       }
@@ -1363,9 +1366,10 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
         const result = {
           success: true,
           data: {
-            message: 'Switched to troubleshooting mode. I\'ll help diagnose issues systematically using event history and web search.',
-            mode: 'troubleshooting'
-          }
+            message:
+              "Switched to troubleshooting mode. I'll help diagnose issues systematically using event history and web search.",
+            mode: 'troubleshooting',
+          },
         };
 
         const duration = Date.now() - startTime;
@@ -1380,8 +1384,8 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
           success: true,
           data: {
             message: 'Switched to normal mode.',
-            mode: 'normal'
-          }
+            mode: 'normal',
+          },
         };
 
         const duration = Date.now() - startTime;
@@ -1398,8 +1402,8 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
         success: true,
         data: {
           message: response,
-          mode: currentMode
-        }
+          mode: currentMode,
+        },
       };
 
       const duration = Date.now() - startTime;
@@ -1407,24 +1411,23 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
         messageLength: message.length,
         responseLength: response.length,
         mode: currentMode,
-        duration
+        duration,
       });
 
       return reply.send(result);
-
     } catch (error: unknown) {
       const duration = Date.now() - startTime;
       logger.error('Error processing chat message', {
         error: error instanceof Error ? error.message : String(error),
-        duration
+        duration,
       });
 
       const result = {
         success: false,
         error: {
           code: 'INTERNAL_ERROR',
-          message: error instanceof Error ? error.message : 'Unknown error'
-        }
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
       };
 
       return reply.code(500).send(result);
@@ -1598,7 +1601,9 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
   logger.info('  Events:  GET    /api/events/device/:deviceId');
   logger.info('  Events:  GET    /api/events/stream (SSE)');
   logger.info('  Webhook: POST   /webhook/smartthings');
-  logger.info('Other routes: /alexa, /alexa-smarthome, /api/chat, /api/devices/*, /api/automations, /health, /');
+  logger.info(
+    'Other routes: /alexa, /alexa-smarthome, /api/chat, /api/devices/*, /api/automations, /health, /'
+  );
 }
 
 /**

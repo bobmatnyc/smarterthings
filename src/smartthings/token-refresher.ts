@@ -191,9 +191,7 @@ export class TokenRefresher {
       const newTokens = await this.oauthService.refreshAccessToken(refreshToken);
 
       // Calculate new expiry timestamp
-      const expiresAt = SmartThingsOAuthService.calculateExpiryTimestamp(
-        newTokens.expires_in
-      );
+      const expiresAt = SmartThingsOAuthService.calculateExpiryTimestamp(newTokens.expires_in);
 
       // Store refreshed tokens
       await this.tokenStorage.storeTokens(
@@ -210,8 +208,7 @@ export class TokenRefresher {
         expiresAt: new Date(expiresAt * 1000).toISOString(),
       });
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
       if (attempt >= maxAttempts) {
         logger.error('Token refresh failed after max attempts', {

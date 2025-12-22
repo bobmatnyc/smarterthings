@@ -230,12 +230,13 @@ export async function loadDevices(forceRefresh: boolean = false): Promise<void> 
 			const normalizedDevices: UnifiedDevice[] = [];
 			devices.forEach((device) => {
 				// Normalize device fields:
-				// - API returns 'deviceId', store expects 'id'
-				// - API returns 'roomName', store expects 'room'
+				// - Ensure 'id' field is set (unified ID format: "smartthings:{deviceId}")
+				// - Ensure 'room' field is set (room name from roomName or room)
+				// - Preserve all other fields including platformDeviceId
 				const normalizedDevice = {
 					...device,
-					id: device.deviceId || device.id,
-					room: device.roomName || device.room
+					id: device.id || (device as any).deviceId, // Fallback for old API format
+					room: device.room || (device as any).roomName // Fallback for old API format
 				};
 				newDeviceMap.set(normalizedDevice.id, normalizedDevice);
 				normalizedDevices.push(normalizedDevice);

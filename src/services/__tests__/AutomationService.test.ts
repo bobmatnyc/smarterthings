@@ -185,9 +185,7 @@ describe('AutomationService', () => {
       const rules1: Rule[] = [createMockRule({ id: 'rule-1', name: 'Location 1 Rule' })];
       const rules2: Rule[] = [createMockRule({ id: 'rule-2', name: 'Location 2 Rule' })];
 
-      (mockAdapter.listRules as Mock)
-        .mockResolvedValueOnce(rules1)
-        .mockResolvedValueOnce(rules2);
+      (mockAdapter.listRules as Mock).mockResolvedValueOnce(rules1).mockResolvedValueOnce(rules2);
 
       const result1 = await service.listRules(location1);
       const result2 = await service.listRules(location2);

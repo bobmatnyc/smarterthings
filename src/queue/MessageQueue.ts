@@ -213,10 +213,7 @@ export class MessageQueue {
    * @param eventType - Event type to handle
    * @param handler - Handler function for events
    */
-  private async startWorker(
-    eventType: SmartHomeEventType,
-    handler: EventHandler
-  ): Promise<void> {
+  private async startWorker(eventType: SmartHomeEventType, handler: EventHandler): Promise<void> {
     if (!this.queue) {
       throw new Error('Queue not initialized');
     }

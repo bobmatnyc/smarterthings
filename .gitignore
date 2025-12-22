@@ -135,3 +135,6 @@ wheels/
 # Claude MPM agent runtime files
 .claude/agents/.dependency_cache
 .claude/agents/.mpm_deployment_state
+
+# MCP configuration (contains tokens)
+.mcp.json

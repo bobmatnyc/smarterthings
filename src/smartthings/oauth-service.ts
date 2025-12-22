@@ -336,4 +336,7 @@ export const DEFAULT_SCOPES = [
   'r:locations:*',
   'r:scenes:*',    // READ scenes
   'x:scenes:*',    // EXECUTE scenes
+  'r:rules:*',     // READ rules (automations)
+  'w:rules:*',     // WRITE/modify rules
+  'x:rules:*',     // EXECUTE rules
 ];

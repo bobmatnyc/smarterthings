@@ -33,4 +33,10 @@ export type {
 export { AgentSyncError } from './types.js';
 
 // SQL queries (exported for testing and debugging)
-export { SourceQueries, FileQueries, HistoryQueries, SchemaQueries, MaintenanceQueries } from './queries.js';
+export {
+  SourceQueries,
+  FileQueries,
+  HistoryQueries,
+  SchemaQueries,
+  MaintenanceQueries,
+} from './queries.js';

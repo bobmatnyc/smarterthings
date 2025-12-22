@@ -154,14 +154,16 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Generate events every 5 minutes for the last hour
       for (let i = 0; i < 12; i++) {
-        events.push(createTestEvent({
-          deviceId: createDeviceId('device-1'),
-          deviceName: 'Test Device',
-          attribute: 'switch',
-          value: i % 2 === 0 ? 'on' : 'off',
-          time: new Date(now - i * 5 * 60 * 1000).toISOString(),
-          epoch: now - i * 5 * 60 * 1000,
-        }));
+        events.push(
+          createTestEvent({
+            deviceId: createDeviceId('device-1'),
+            deviceName: 'Test Device',
+            attribute: 'switch',
+            value: i % 2 === 0 ? 'on' : 'off',
+            time: new Date(now - i * 5 * 60 * 1000).toISOString(),
+            epoch: now - i * 5 * 60 * 1000,
+          })
+        );
       }
 
       const result = await detector.detectAll(createDeviceId('device-1'), events);
@@ -187,14 +189,16 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Generate 15 rapid state changes in odd hours
       for (let i = 0; i < 15; i++) {
-        events.push(createTestEvent({
-          deviceId: createDeviceId('device-1'),
-          deviceName: 'Test Device',
-          attribute: 'switch',
-          value: i % 2 === 0 ? 'off' : 'on',
-          time: new Date(baseTime + i * 3000).toISOString(), // 3 seconds apart
-          epoch: baseTime + i * 3000,
-        }));
+        events.push(
+          createTestEvent({
+            deviceId: createDeviceId('device-1'),
+            deviceName: 'Test Device',
+            attribute: 'switch',
+            value: i % 2 === 0 ? 'off' : 'on',
+            time: new Date(baseTime + i * 3000).toISOString(), // 3 seconds apart
+            epoch: baseTime + i * 3000,
+          })
+        );
       }
 
       const startTime = Date.now();
@@ -264,14 +268,16 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
       // Generate 7 rapid changes for medium severity (algorithm needs >=5)
       // Must be <10s apart to be detected as "rapid"
       for (let i = 0; i < 7; i++) {
-        events.push(createTestEvent({
-          deviceId: createDeviceId('device-1'),
-          deviceName: 'Test Device',
-          attribute: 'switch',
-          value: i % 2 === 0 ? 'on' : 'off',
-          time: new Date(now + i * 8000).toISOString(), // 8s apart (rapid but not immediate)
-          epoch: now + i * 8000,
-        }));
+        events.push(
+          createTestEvent({
+            deviceId: createDeviceId('device-1'),
+            deviceName: 'Test Device',
+            attribute: 'switch',
+            value: i % 2 === 0 ? 'on' : 'off',
+            time: new Date(now + i * 8000).toISOString(), // 8s apart (rapid but not immediate)
+            epoch: now + i * 8000,
+          })
+        );
       }
 
       const result = await detector.detectAll(createDeviceId('device-1'), events);
@@ -328,14 +334,16 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Generate 5 repeated failures for the same attribute
       for (let i = 0; i < 5; i++) {
-        events.push(createTestEvent({
-          deviceId: createDeviceId('device-1'),
-          deviceName: 'Test Device',
-          attribute: 'lock',
-          value: 'offline',
-          time: new Date(now + i * 1000).toISOString(),
-          epoch: now + i * 1000,
-        }));
+        events.push(
+          createTestEvent({
+            deviceId: createDeviceId('device-1'),
+            deviceName: 'Test Device',
+            attribute: 'lock',
+            value: 'offline',
+            time: new Date(now + i * 1000).toISOString(),
+            epoch: now + i * 1000,
+          })
+        );
       }
 
       const startTime = Date.now();
@@ -361,14 +369,16 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Generate 25 events within 1 minute (event storm)
       for (let i = 0; i < 25; i++) {
-        events.push(createTestEvent({
-          deviceId: createDeviceId('device-1'),
-          deviceName: 'Test Device',
-          attribute: 'motion',
-          value: 'active',
-          time: new Date(now + i * 2000).toISOString(), // 2s apart
-          epoch: now + i * 2000,
-        }));
+        events.push(
+          createTestEvent({
+            deviceId: createDeviceId('device-1'),
+            deviceName: 'Test Device',
+            attribute: 'motion',
+            value: 'active',
+            time: new Date(now + i * 2000).toISOString(), // 2s apart
+            epoch: now + i * 2000,
+          })
+        );
       }
 
       const result = await detector.detectAll(createDeviceId('device-1'), events);
@@ -547,14 +557,16 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Add repeated failures (will be high)
       for (let i = 0; i < 5; i++) {
-        events.push(createTestEvent({
-          deviceId: createDeviceId('device-1'),
-          deviceName: 'Test Device',
-          attribute: 'lock',
-          value: 'offline',
-          time: new Date(now + i * 1000).toISOString(),
-          epoch: now + i * 1000,
-        }));
+        events.push(
+          createTestEvent({
+            deviceId: createDeviceId('device-1'),
+            deviceName: 'Test Device',
+            attribute: 'lock',
+            value: 'offline',
+            time: new Date(now + i * 1000).toISOString(),
+            epoch: now + i * 1000,
+          })
+        );
       }
 
       mockDeviceService.setBatteryLevel(5); // Critical battery
@@ -600,14 +612,16 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Add events for various patterns
       for (let i = 0; i < 50; i++) {
-        events.push(createTestEvent({
-          deviceId: createDeviceId('device-1'),
-          deviceName: 'Test Device',
-          attribute: 'switch',
-          value: i % 2 === 0 ? 'on' : 'off',
-          time: new Date(now + i * 1000).toISOString(),
-          epoch: now + i * 1000,
-        }));
+        events.push(
+          createTestEvent({
+            deviceId: createDeviceId('device-1'),
+            deviceName: 'Test Device',
+            attribute: 'switch',
+            value: i % 2 === 0 ? 'on' : 'off',
+            time: new Date(now + i * 1000).toISOString(),
+            epoch: now + i * 1000,
+          })
+        );
       }
 
       mockDeviceService.setBatteryLevel(15); // Trigger battery pattern

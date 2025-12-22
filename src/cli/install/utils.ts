@@ -125,9 +125,7 @@ export function detectPackageInfo(mode: InstallMode = 'auto'): PackageInfo {
   // Explicit mode override
   if (mode === 'global') {
     if (!globalPath || !existsSync(globalPath)) {
-      throw new Error(
-        `Global installation not found. Install with: npm install -g ${packageName}`
-      );
+      throw new Error(`Global installation not found. Install with: npm install -g ${packageName}`);
     }
     return {
       mode: 'global',

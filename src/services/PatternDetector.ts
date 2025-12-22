@@ -65,7 +65,12 @@ export type PatternSeverity = 'low' | 'medium' | 'high' | 'critical';
  */
 export interface DetectedPattern {
   /** Pattern type identifier */
-  type: 'connectivity_gap' | 'automation_conflict' | 'event_anomaly' | 'battery_degradation' | 'normal';
+  type:
+    | 'connectivity_gap'
+    | 'automation_conflict'
+    | 'event_anomaly'
+    | 'battery_degradation'
+    | 'normal';
 
   /** Human-readable description */
   description: string;
@@ -168,7 +173,8 @@ export class PatternDetector {
           patterns.push(...result.value);
           successCount++;
         } else if (result.status === 'rejected') {
-          const error = result.reason instanceof Error ? result.reason.message : String(result.reason);
+          const error =
+            result.reason instanceof Error ? result.reason.message : String(result.reason);
           errors.push(error);
           logger.warn('Pattern detection algorithm failed', { deviceId, error });
         }
@@ -442,7 +448,10 @@ export class PatternDetector {
     const failuresByAttribute = new Map<string, number>();
     events.forEach((event) => {
       if (event.value === 'offline' || event.value === 'error') {
-        failuresByAttribute.set(event.attribute, (failuresByAttribute.get(event.attribute) || 0) + 1);
+        failuresByAttribute.set(
+          event.attribute,
+          (failuresByAttribute.get(event.attribute) || 0) + 1
+        );
       }
     });
 

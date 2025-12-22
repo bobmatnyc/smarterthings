@@ -64,10 +64,7 @@ let serviceContainer: ServiceContainer;
  * quick overview. Filters available for focused diagnostics.
  */
 const getSystemStatusSchema = z.object({
-  scope: z
-    .string()
-    .optional()
-    .describe('Scope filter: "all" (default) or specific room name'),
+  scope: z.string().optional().describe('Scope filter: "all" (default) or specific room name'),
 
   capability: z
     .string()
@@ -206,9 +203,7 @@ async function getDeviceSummary(
   // Apply capability filter
   let filteredDevices = devices;
   if (capabilityFilter) {
-    filteredDevices = devices.filter((d) =>
-      d.capabilities?.includes(capabilityFilter)
-    );
+    filteredDevices = devices.filter((d) => d.capabilities?.includes(capabilityFilter));
   }
 
   // Apply room filter
@@ -289,9 +284,7 @@ async function getConnectivityIssues(
         const patterns = await patternDetector.detectAll(deviceId, eventResult.events);
 
         // Extract connectivity gap patterns
-        const connectivityPatterns = patterns.patterns.filter(
-          (p) => p.type === 'connectivity_gap'
-        );
+        const connectivityPatterns = patterns.patterns.filter((p) => p.type === 'connectivity_gap');
 
         return connectivityPatterns.map((pattern) => ({
           deviceId,
@@ -353,7 +346,9 @@ async function getBatteryAlerts(
   const alerts: BatteryAlert[] = [];
 
   // Filter to battery-powered devices
-  const batteryDevices = devices.filter((d) => d.capabilities.includes('battery' as DeviceCapability));
+  const batteryDevices = devices.filter((d) =>
+    d.capabilities.includes('battery' as DeviceCapability)
+  );
 
   // Limit to first 20 for performance
   const sampleDevices = batteryDevices.slice(0, 20);
@@ -610,7 +605,14 @@ function shouldIncludeSeverity(severity: PatternSeverity, filter: PatternSeverit
  * @returns Formatted markdown string
  */
 function generateMarkdownReport(report: SystemStatusReport): string {
-  const { deviceSummary, connectivityIssues, batteryAlerts, automationIssues, aggregatedAnomalies, indexHealth } = report;
+  const {
+    deviceSummary,
+    connectivityIssues,
+    batteryAlerts,
+    automationIssues,
+    aggregatedAnomalies,
+    indexHealth,
+  } = report;
 
   // Device Summary
   const roomBreakdown = Array.from(deviceSummary.byRoom.entries())
@@ -651,7 +653,10 @@ ${roomBreakdown || '  (No room information)'}`;
   const automationSection =
     automationIssues.length > 0
       ? automationIssues
-          .map((issue) => `- **${issue.deviceName}**: ${issue.description}\n  Severity: ${issue.severity}`)
+          .map(
+            (issue) =>
+              `- **${issue.deviceName}**: ${issue.description}\n  Severity: ${issue.severity}`
+          )
           .join('\n\n')
       : 'No automation issues detected';
 
@@ -740,8 +745,13 @@ export async function handleGetSystemStatus(input: McpToolInput): Promise<CallTo
   const startTime = Date.now();
 
   try {
-    const { scope = 'all', capability, severity, includePatterns, format } =
-      getSystemStatusSchema.parse(input);
+    const {
+      scope = 'all',
+      capability,
+      severity,
+      includePatterns,
+      format,
+    } = getSystemStatusSchema.parse(input);
 
     logger.info('Generating system status report', {
       scope,

@@ -32,8 +32,12 @@
 
 import chalk from 'chalk';
 import { parseArgs } from 'util';
-import type { AgenticSystem, InstallOptions, InstallResult, SystemName } from '../types/install.js';
-import { detectAllSystems, getSystemDefinition, formatDetectionResults } from './install/detectors.js';
+import type { AgenticSystem, InstallMode, InstallOptions, InstallResult, SystemName } from '../types/install.js';
+import {
+  detectAllSystems,
+  getSystemDefinition,
+  formatDetectionResults,
+} from './install/detectors.js';
 import { detectPackageInfo } from './install/utils.js';
 import {
   validatePreInstallation,
@@ -59,7 +63,9 @@ function displayHelp(): void {
   console.log(chalk.gray('  mcp-smartthings install [system] [options]'));
   console.log();
   console.log(chalk.white('Arguments:'));
-  console.log(chalk.gray('  system              Target system (optional, auto-detect if not specified)'));
+  console.log(
+    chalk.gray('  system              Target system (optional, auto-detect if not specified)')
+  );
   console.log();
   console.log(chalk.white('Options:'));
   console.log(chalk.gray('  --help, -h          Show this help message'));
@@ -79,7 +85,9 @@ function displayHelp(): void {
   console.log();
   console.log(chalk.white('Examples:'));
   console.log(chalk.gray('  mcp-smartthings install                    # Auto-detect and install'));
-  console.log(chalk.gray('  mcp-smartthings install claude-desktop     # Install for Claude Desktop'));
+  console.log(
+    chalk.gray('  mcp-smartthings install claude-desktop     # Install for Claude Desktop')
+  );
   console.log(chalk.gray('  mcp-smartthings install --detect           # List detected systems'));
   console.log(chalk.gray('  mcp-smartthings install --dry-run          # Preview installation'));
   console.log();
@@ -95,7 +103,9 @@ function displaySystemList(): void {
   console.log(chalk.bold.cyan('\nSupported Systems:'));
   console.log(chalk.gray('━'.repeat(60)));
   console.log();
-  console.log(chalk.white('  claude-desktop') + chalk.gray('  - Claude Desktop app (macOS/Windows)'));
+  console.log(
+    chalk.white('  claude-desktop') + chalk.gray('  - Claude Desktop app (macOS/Windows)')
+  );
   console.log(chalk.white('  claude-code') + chalk.gray('     - Claude Code CLI tool'));
   console.log(chalk.white('  codex') + chalk.gray('           - Codex CLI tool'));
   console.log(chalk.white('  gemini-cli') + chalk.gray('      - Gemini CLI tool'));
@@ -179,7 +189,7 @@ async function installForSystem(
 
     // 2. Pre-installation validation
     const packageInfo = {
-      mode: (options.global ? 'global' : options.local ? 'local' : 'auto') as 'global' | 'local' | 'auto',
+      mode: (options.global ? 'global' : options.local ? 'local' : 'auto') as InstallMode,
       path: packagePath,
       exists: true,
     };
@@ -342,7 +352,9 @@ async function main(): Promise<void> {
     console.error();
     console.error(chalk.white('Solutions:'));
     console.error(chalk.gray('  1. Install an agentic system first'));
-    console.error(chalk.gray('  2. Specify system explicitly: mcp-smartthings install claude-desktop'));
+    console.error(
+      chalk.gray('  2. Specify system explicitly: mcp-smartthings install claude-desktop')
+    );
     console.error(chalk.gray('  3. Manual installation: See docs/manual-install.md'));
     console.error();
     process.exit(1);
@@ -362,7 +374,9 @@ async function main(): Promise<void> {
     const targetSystem = getSystemDefinition(system);
     if (!targetSystem.detected) {
       console.warn(chalk.yellow(`\n⚠️  Warning: ${targetSystem.displayName} not detected`));
-      console.warn(chalk.yellow('    Installation will proceed but may fail if system is not installed'));
+      console.warn(
+        chalk.yellow('    Installation will proceed but may fail if system is not installed')
+      );
     }
     targetSystems = [targetSystem];
   } else {
