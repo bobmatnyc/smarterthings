@@ -820,11 +820,13 @@ export class ToolExecutor {
    * @returns Array of rules or error
    */
   async listRules(params?: { locationId?: string }): Promise<DirectResult<any[]>> {
+    // Declare locationId outside try block for error logging
+    let locationId = params?.locationId;
+
     try {
       const automationService = this.serviceContainer.getAutomationService();
 
       // Get default location if not provided
-      let locationId = params?.locationId;
       if (!locationId) {
         const locationsResult = await this.listLocations();
         if (!locationsResult.success || !locationsResult.data?.locations?.length) {

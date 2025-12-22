@@ -16,11 +16,27 @@
  * 7. Integration Testing - ServiceContainer and DiagnosticWorkflow
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { PatternDetector } from '../PatternDetector.js';
 import type { DeviceEvent } from '../../types/device-events.js';
 import type { IDeviceService } from '../interfaces.js';
 import type { DeviceStatus } from '../../types/smartthings.js';
+import { createDeviceId, createLocationId, createCapabilityName } from '../../types/smartthings.js';
+
+// Helper to create test events with all required fields
+function createTestEvent(overrides: Partial<DeviceEvent>): DeviceEvent {
+  return {
+    deviceId: createDeviceId('test-device'),
+    locationId: createLocationId('test-location'),
+    component: 'main',
+    capability: createCapabilityName('switch'),
+    attribute: 'switch',
+    value: 'on',
+    time: new Date().toISOString(),
+    epoch: Date.now(),
+    ...overrides,
+  };
+}
 
 // Mock device service for testing
 class MockDeviceService implements Partial<IDeviceService> {
@@ -32,6 +48,7 @@ class MockDeviceService implements Partial<IDeviceService> {
 
   async getDeviceStatus(): Promise<DeviceStatus> {
     return {
+      deviceId: createDeviceId('test-device'),
       components: {
         main: {
           battery: {
@@ -41,7 +58,7 @@ class MockDeviceService implements Partial<IDeviceService> {
           },
         },
       },
-    } as DeviceStatus;
+    };
   }
 }
 
@@ -51,33 +68,33 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
   beforeEach(() => {
     mockDeviceService = new MockDeviceService();
-    detector = new PatternDetector(mockDeviceService as IDeviceService);
+    detector = new PatternDetector(mockDeviceService as unknown as IDeviceService);
   });
 
   describe('1. Connectivity Gap Detection', () => {
     it('should detect CRITICAL severity for gap >24 hours', async () => {
       const now = Date.now();
       const events: DeviceEvent[] = [
-        {
-          deviceId: 'device-1',
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'on',
           time: new Date(now - 26 * 60 * 60 * 1000).toISOString(), // 26 hours ago
           epoch: now - 26 * 60 * 60 * 1000,
-        },
-        {
-          deviceId: 'device-1',
+        }),
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'off',
           time: new Date(now).toISOString(),
           epoch: now,
-        },
+        }),
       ];
 
       const startTime = Date.now();
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
       const executionTime = Date.now() - startTime;
 
       console.log('[1a] Connectivity Gap >24h Test:', {
@@ -97,26 +114,26 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
     it('should detect MEDIUM severity for gap 6-12 hours', async () => {
       const now = Date.now();
       const events: DeviceEvent[] = [
-        {
-          deviceId: 'device-1',
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'on',
           time: new Date(now - 8 * 60 * 60 * 1000).toISOString(), // 8 hours ago
           epoch: now - 8 * 60 * 60 * 1000,
-        },
-        {
-          deviceId: 'device-1',
+        }),
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'off',
           time: new Date(now).toISOString(),
           epoch: now,
-        },
+        }),
       ];
 
       const startTime = Date.now();
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
       const executionTime = Date.now() - startTime;
 
       console.log('[1b] Connectivity Gap 6-12h Test:', {
@@ -137,17 +154,17 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Generate events every 5 minutes for the last hour
       for (let i = 0; i < 12; i++) {
-        events.push({
-          deviceId: 'device-1',
+        events.push(createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: i % 2 === 0 ? 'on' : 'off',
           time: new Date(now - i * 5 * 60 * 1000).toISOString(),
           epoch: now - i * 5 * 60 * 1000,
-        });
+        }));
       }
 
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
 
       console.log('[1c] Online Device Test:', {
         patternsDetected: result.patterns.length,
@@ -170,18 +187,18 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Generate 15 rapid state changes in odd hours
       for (let i = 0; i < 15; i++) {
-        events.push({
-          deviceId: 'device-1',
+        events.push(createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: i % 2 === 0 ? 'off' : 'on',
           time: new Date(baseTime + i * 3000).toISOString(), // 3 seconds apart
           epoch: baseTime + i * 3000,
-        });
+        }));
       }
 
       const startTime = Date.now();
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
       const executionTime = Date.now() - startTime;
 
       console.log('[2a] Odd-hour Automation Test:', {
@@ -206,26 +223,26 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
       // Updated test to reflect actual implementation behavior
       for (let i = 0; i < 6; i++) {
         events.push(
-          {
-            deviceId: 'device-1',
+          createTestEvent({
+            deviceId: createDeviceId('device-1'),
             deviceName: 'Test Device',
             attribute: 'switch',
             value: 'off',
             time: new Date(now + i * 10000).toISOString(),
             epoch: now + i * 10000,
-          },
-          {
-            deviceId: 'device-1',
+          }),
+          createTestEvent({
+            deviceId: createDeviceId('device-1'),
             deviceName: 'Test Device',
             attribute: 'switch',
             value: 'on',
             time: new Date(now + i * 10000 + 3000).toISOString(), // 3s later
             epoch: now + i * 10000 + 3000,
-          }
+          })
         );
       }
 
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
 
       console.log('[2b] Rapid Re-trigger Test:', {
         patternsDetected: result.patterns.length,
@@ -247,17 +264,17 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
       // Generate 7 rapid changes for medium severity (algorithm needs >=5)
       // Must be <10s apart to be detected as "rapid"
       for (let i = 0; i < 7; i++) {
-        events.push({
-          deviceId: 'device-1',
+        events.push(createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: i % 2 === 0 ? 'on' : 'off',
           time: new Date(now + i * 8000).toISOString(), // 8s apart (rapid but not immediate)
           epoch: now + i * 8000,
-        });
+        }));
       }
 
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
 
       console.log('[2c] Medium Severity Test:', {
         patternsDetected: result.patterns.length,
@@ -274,25 +291,25 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
     it('should detect NO patterns for normal automation usage', async () => {
       const now = Date.now();
       const events: DeviceEvent[] = [
-        {
-          deviceId: 'device-1',
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'on',
           time: new Date(now - 60000).toISOString(), // 1 minute ago
           epoch: now - 60000,
-        },
-        {
-          deviceId: 'device-1',
+        }),
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'off',
           time: new Date(now).toISOString(),
           epoch: now,
-        },
+        }),
       ];
 
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
 
       console.log('[2d] Normal Automation Test:', {
         patternsDetected: result.patterns.length,
@@ -311,18 +328,18 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Generate 5 repeated failures for the same attribute
       for (let i = 0; i < 5; i++) {
-        events.push({
-          deviceId: 'device-1',
+        events.push(createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'lock',
           value: 'offline',
           time: new Date(now + i * 1000).toISOString(),
           epoch: now + i * 1000,
-        });
+        }));
       }
 
       const startTime = Date.now();
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
       const executionTime = Date.now() - startTime;
 
       console.log('[3a] Repeated Failures Test:', {
@@ -344,17 +361,17 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Generate 25 events within 1 minute (event storm)
       for (let i = 0; i < 25; i++) {
-        events.push({
-          deviceId: 'device-1',
+        events.push(createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'motion',
           value: 'active',
           time: new Date(now + i * 2000).toISOString(), // 2s apart
           epoch: now + i * 2000,
-        });
+        }));
       }
 
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
 
       console.log('[3b] Event Storm Test:', {
         patternsDetected: result.patterns.length,
@@ -370,25 +387,25 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
     it('should detect NO patterns for normal events', async () => {
       const now = Date.now();
       const events: DeviceEvent[] = [
-        {
-          deviceId: 'device-1',
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'motion',
           value: 'active',
           time: new Date(now - 120000).toISOString(),
           epoch: now - 120000,
-        },
-        {
-          deviceId: 'device-1',
+        }),
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'motion',
           value: 'inactive',
           time: new Date(now).toISOString(),
           epoch: now,
-        },
+        }),
       ];
 
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
 
       console.log('[3c] Normal Events Test:', {
         patternsDetected: result.patterns.length,
@@ -405,7 +422,7 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
       mockDeviceService.setBatteryLevel(5);
 
       const startTime = Date.now();
-      const result = await detector.detectAll('device-1', []);
+      const result = await detector.detectAll(createDeviceId('device-1'), []);
       const executionTime = Date.now() - startTime;
 
       console.log('[4a] Battery <10% Test:', {
@@ -425,7 +442,7 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
     it('should detect HIGH severity for battery 10-20%', async () => {
       mockDeviceService.setBatteryLevel(15);
 
-      const result = await detector.detectAll('device-1', []);
+      const result = await detector.detectAll(createDeviceId('device-1'), []);
 
       console.log('[4b] Battery 10-20% Test:', {
         patternsDetected: result.patterns.length,
@@ -442,7 +459,7 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
     it('should detect NO patterns for battery >20%', async () => {
       mockDeviceService.setBatteryLevel(80);
 
-      const result = await detector.detectAll('device-1', []);
+      const result = await detector.detectAll(createDeviceId('device-1'), []);
 
       console.log('[4c] Battery >20% Test:', {
         patternsDetected: result.patterns.length,
@@ -461,27 +478,27 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
       // Create events that trigger multiple severity levels
       const events: DeviceEvent[] = [
         // Critical: 26-hour gap
-        {
-          deviceId: 'device-1',
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'on',
           time: new Date(now - 26 * 60 * 60 * 1000).toISOString(),
           epoch: now - 26 * 60 * 60 * 1000,
-        },
-        {
-          deviceId: 'device-1',
+        }),
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'off',
           time: new Date(now).toISOString(),
           epoch: now,
-        },
+        }),
       ];
 
       mockDeviceService.setBatteryLevel(5); // Critical battery
 
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
 
       console.log('[5a] Severity Levels Test:', {
         patterns: result.patterns.map((p) => ({
@@ -510,39 +527,39 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Add connectivity gap (will be critical)
       events.push(
-        {
-          deviceId: 'device-1',
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'on',
           time: new Date(now - 26 * 60 * 60 * 1000).toISOString(),
           epoch: now - 26 * 60 * 60 * 1000,
-        },
-        {
-          deviceId: 'device-1',
+        }),
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'off',
           time: new Date(now).toISOString(),
           epoch: now,
-        }
+        })
       );
 
       // Add repeated failures (will be high)
       for (let i = 0; i < 5; i++) {
-        events.push({
-          deviceId: 'device-1',
+        events.push(createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'lock',
           value: 'offline',
           time: new Date(now + i * 1000).toISOString(),
           epoch: now + i * 1000,
-        });
+        }));
       }
 
       mockDeviceService.setBatteryLevel(5); // Critical battery
 
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
 
       console.log('[5b] Pattern Sorting Test:', {
         patterns: result.patterns.map((p) => ({
@@ -553,14 +570,19 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
       });
 
       // Verify patterns are sorted by severity (critical first)
-      const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      const severityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
       for (let i = 1; i < result.patterns.length; i++) {
-        const prevSeverity = severityOrder[result.patterns[i - 1].severity];
-        const currSeverity = severityOrder[result.patterns[i].severity];
+        const prevPattern = result.patterns[i - 1];
+        const currPattern = result.patterns[i];
+        if (!prevPattern || !currPattern) continue;
+
+        const prevSeverity = severityOrder[prevPattern.severity];
+        const currSeverity = severityOrder[currPattern.severity];
+        if (prevSeverity === undefined || currSeverity === undefined) continue;
 
         if (prevSeverity === currSeverity) {
           // Same severity - verify sorted by score descending
-          expect(result.patterns[i - 1].score).toBeGreaterThanOrEqual(result.patterns[i].score);
+          expect(prevPattern.score).toBeGreaterThanOrEqual(currPattern.score);
         } else {
           // Different severity - verify critical comes first
           expect(prevSeverity).toBeLessThanOrEqual(currSeverity);
@@ -578,20 +600,20 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
 
       // Add events for various patterns
       for (let i = 0; i < 50; i++) {
-        events.push({
-          deviceId: 'device-1',
+        events.push(createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: i % 2 === 0 ? 'on' : 'off',
           time: new Date(now + i * 1000).toISOString(),
           epoch: now + i * 1000,
-        });
+        }));
       }
 
       mockDeviceService.setBatteryLevel(15); // Trigger battery pattern
 
       const startTime = Date.now();
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
       const executionTime = Date.now() - startTime;
 
       console.log('[6a] Parallel Execution Test:', {
@@ -617,21 +639,21 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
         },
       };
 
-      const failingDetector = new PatternDetector(failingMock as IDeviceService);
+      const failingDetector = new PatternDetector(failingMock as unknown as IDeviceService);
 
       const now = Date.now();
       const events: DeviceEvent[] = [
-        {
-          deviceId: 'device-1',
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'on',
           time: new Date(now).toISOString(),
           epoch: now,
-        },
+        }),
       ];
 
-      const result = await failingDetector.detectAll('device-1', events);
+      const result = await failingDetector.detectAll(createDeviceId('device-1'), events);
 
       console.log('[6b] Graceful Degradation Test:', {
         allAlgorithmsSucceeded: result.allAlgorithmsSucceeded,
@@ -667,17 +689,17 @@ describe('PatternDetector - Algorithm Verification (1M-286)', () => {
     it('should maintain backward compatibility with legacy IssuePattern format', async () => {
       const now = Date.now();
       const events: DeviceEvent[] = [
-        {
-          deviceId: 'device-1',
+        createTestEvent({
+          deviceId: createDeviceId('device-1'),
           deviceName: 'Test Device',
           attribute: 'switch',
           value: 'on',
           time: new Date(now).toISOString(),
           epoch: now,
-        },
+        }),
       ];
 
-      const result = await detector.detectAll('device-1', events);
+      const result = await detector.detectAll(createDeviceId('device-1'), events);
 
       console.log('[7b] Backward Compatibility Test:', {
         patterns: result.patterns.map((p) => ({

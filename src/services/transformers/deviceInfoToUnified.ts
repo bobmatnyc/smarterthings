@@ -161,7 +161,7 @@ const CAPABILITY_INFERENCE_RULES: CapabilityInferenceRule[] = [
         device.name.toLowerCase().includes('lutron') &&
         device.name.toLowerCase().includes('dimmer');
       const hasOnlyRefresh =
-        device.capabilities.length === 1 && device.capabilities.includes('refresh');
+        device.capabilities?.length === 1 && device.capabilities.includes('refresh');
       return isLutronDimmer && hasOnlyRefresh;
     },
     addCapabilities: ['switch', 'switchLevel'],
@@ -174,7 +174,7 @@ const CAPABILITY_INFERENCE_RULES: CapabilityInferenceRule[] = [
         device.name.toLowerCase().includes('lutron') &&
         device.name.toLowerCase().includes('switch');
       const hasOnlyRefresh =
-        device.capabilities.length === 1 && device.capabilities.includes('refresh');
+        device.capabilities?.length === 1 && device.capabilities.includes('refresh');
       return isLutronSwitch && hasOnlyRefresh;
     },
     addCapabilities: ['switch'],
@@ -224,7 +224,7 @@ const CAPABILITY_INFERENCE_RULES: CapabilityInferenceRule[] = [
  * ```
  */
 function inferMissingCapabilities(deviceInfo: DeviceInfo): string[] {
-  const capabilities = [...deviceInfo.capabilities];
+  const capabilities = [...(deviceInfo.capabilities ?? [])];
   const addedCapabilities: string[] = [];
 
   for (const rule of CAPABILITY_INFERENCE_RULES) {
@@ -373,90 +373,90 @@ function extractLastSeen(status?: DeviceStatus): Date | undefined {
  * ```
  */
 function extractDeviceState(status?: DeviceStatus): DeviceState | undefined {
-  if (!status?.components?.main) {
+  if (!status?.components?.['main']) {
     return undefined;
   }
 
-  const main = status.components.main;
+  const main = status.components['main'];
   const state: DeviceState = {
     timestamp: new Date().toISOString(),
   };
 
   // Extract switch state
-  if (main.switch?.switch?.value !== undefined) {
-    state.switch = main.switch.switch.value as 'on' | 'off';
+  if (main['switch']?.['switch']?.value !== undefined) {
+    state.switch = main['switch']['switch'].value as 'on' | 'off';
   }
 
   // Extract dimmer level
-  if (main.switchLevel?.level?.value !== undefined) {
-    state.level = Number(main.switchLevel.level.value);
+  if (main['switchLevel']?.['level']?.value !== undefined) {
+    state.level = Number(main['switchLevel']['level'].value);
   }
 
   // Extract temperature
-  if (main.temperatureMeasurement?.temperature?.value !== undefined) {
-    state.temperature = Number(main.temperatureMeasurement.temperature.value);
+  if (main['temperatureMeasurement']?.['temperature']?.value !== undefined) {
+    state.temperature = Number(main['temperatureMeasurement']['temperature'].value);
   }
 
   // Extract humidity
-  if (main.relativeHumidityMeasurement?.humidity?.value !== undefined) {
-    state.humidity = Number(main.relativeHumidityMeasurement.humidity.value);
+  if (main['relativeHumidityMeasurement']?.['humidity']?.value !== undefined) {
+    state.humidity = Number(main['relativeHumidityMeasurement']['humidity'].value);
   }
 
   // Extract motion
-  if (main.motionSensor?.motion?.value !== undefined) {
-    state.motion = main.motionSensor.motion.value as 'active' | 'inactive';
+  if (main['motionSensor']?.['motion']?.value !== undefined) {
+    state.motion = main['motionSensor']['motion'].value as 'active' | 'inactive';
   }
 
   // Extract illuminance
-  if (main.illuminanceMeasurement?.illuminance?.value !== undefined) {
-    state.illuminance = Number(main.illuminanceMeasurement.illuminance.value);
+  if (main['illuminanceMeasurement']?.['illuminance']?.value !== undefined) {
+    state.illuminance = Number(main['illuminanceMeasurement']['illuminance'].value);
   }
 
   // Extract battery
-  if (main.battery?.battery?.value !== undefined) {
-    state.battery = Number(main.battery.battery.value);
+  if (main['battery']?.['battery']?.value !== undefined) {
+    state.battery = Number(main['battery']['battery'].value);
   }
 
   // Extract contact sensor
-  if (main.contactSensor?.contact?.value !== undefined) {
-    state.contact = main.contactSensor.contact.value as 'open' | 'closed';
+  if (main['contactSensor']?.['contact']?.value !== undefined) {
+    state.contact = main['contactSensor']['contact'].value as 'open' | 'closed';
   }
 
   // Extract occupancy
-  if (main.occupancySensor?.occupancy?.value !== undefined) {
-    state.occupancy = main.occupancySensor.occupancy.value as 'occupied' | 'unoccupied';
+  if (main['occupancySensor']?.['occupancy']?.value !== undefined) {
+    state.occupancy = main['occupancySensor']['occupancy'].value as 'occupied' | 'unoccupied';
   }
 
   // Extract water sensor
-  if (main.waterSensor?.water?.value !== undefined) {
-    state.water = main.waterSensor.water.value as 'dry' | 'wet';
+  if (main['waterSensor']?.['water']?.value !== undefined) {
+    state.water = main['waterSensor']['water'].value as 'dry' | 'wet';
   }
 
   // Extract smoke detector
-  if (main.smokeDetector?.smoke?.value !== undefined) {
-    state.smoke = main.smokeDetector.smoke.value as 'clear' | 'detected';
+  if (main['smokeDetector']?.['smoke']?.value !== undefined) {
+    state.smoke = main['smokeDetector']['smoke'].value as 'clear' | 'detected';
   }
 
   // Extract carbon monoxide detector
-  if (main.carbonMonoxideDetector?.carbonMonoxide?.value !== undefined) {
-    state.carbonMonoxide = main.carbonMonoxideDetector.carbonMonoxide.value as
+  if (main['carbonMonoxideDetector']?.['carbonMonoxide']?.value !== undefined) {
+    state.carbonMonoxide = main['carbonMonoxideDetector']['carbonMonoxide'].value as
       | 'clear'
       | 'detected';
   }
 
   // Extract air quality
-  if (main.airQualitySensor?.airQuality?.value !== undefined) {
-    state.airQuality = Number(main.airQualitySensor.airQuality.value);
+  if (main['airQualitySensor']?.['airQuality']?.value !== undefined) {
+    state.airQuality = Number(main['airQualitySensor']['airQuality'].value);
   }
 
   // Extract pressure
-  if (main.pressureMeasurement?.pressure?.value !== undefined) {
-    state.pressure = Number(main.pressureMeasurement.pressure.value);
+  if (main['pressureMeasurement']?.['pressure']?.value !== undefined) {
+    state.pressure = Number(main['pressureMeasurement']['pressure'].value);
   }
 
   // Extract sound pressure level
-  if (main.soundSensor?.soundPressureLevel?.value !== undefined) {
-    state.soundPressureLevel = Number(main.soundSensor.soundPressureLevel.value);
+  if (main['soundSensor']?.['soundPressureLevel']?.value !== undefined) {
+    state.soundPressureLevel = Number(main['soundSensor']['soundPressureLevel'].value);
   }
 
   // Return state only if we extracted at least one value (besides timestamp)

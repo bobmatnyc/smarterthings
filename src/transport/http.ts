@@ -39,8 +39,8 @@ export async function startHttpTransport(server: Server): Promise<void> {
   app.use(express.json());
 
   // Initialize event infrastructure for SSE
-  const eventStore = getEventStore();
-  const messageQueue = new MessageQueue();
+  getEventStore(); // Initialize event store for SSE
+  new MessageQueue(); // Initialize message queue for SSE
 
   // Health check endpoint
   app.get('/health', (_req, res) => {

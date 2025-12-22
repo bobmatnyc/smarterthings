@@ -87,7 +87,7 @@ export class OAuthTokenAuthenticator extends BearerTokenAuthenticator {
    * @returns HTTP headers with Bearer token
    * @throws Error if token refresh fails
    */
-  async authenticate(): Promise<any> {
+  override async authenticate(): Promise<any> {
     // Check if token needs refresh (synchronous check)
     const tokens = this.tokenStorage.getTokens(this.userId);
 

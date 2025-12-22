@@ -1,4 +1,4 @@
-import { SmartThingsClient, BearerTokenAuthenticator } from '@smartthings/core-sdk';
+import { SmartThingsClient, BearerTokenAuthenticator, InstalledAppStatus } from '@smartthings/core-sdk';
 import { environment } from '../config/environment.js';
 import { getTokenStorage } from '../storage/token-storage.js';
 import { OAuthTokenAuthenticator } from './oauth-authenticator.js';
@@ -67,62 +67,62 @@ import type { DeviceState } from '../types/smartthings.js';
  * @returns DeviceState with extracted values, or undefined
  */
 function extractDeviceState(status?: DeviceStatus): DeviceState | undefined {
-  if (!status?.components?.main) {
+  if (!status?.components?.['main']) {
     return undefined;
   }
 
-  const main = status.components.main;
+  const main = status.components['main'];
   const state: DeviceState = {
     timestamp: new Date().toISOString(),
   };
 
   // Extract all state values
-  if (main.switch?.switch?.value !== undefined) {
-    state.switch = main.switch.switch.value as 'on' | 'off';
+  if (main['switch']?.['switch']?.value !== undefined) {
+    state.switch = main['switch']['switch'].value as 'on' | 'off';
   }
-  if (main.switchLevel?.level?.value !== undefined) {
-    state.level = Number(main.switchLevel.level.value);
+  if (main['switchLevel']?.['level']?.value !== undefined) {
+    state.level = Number(main['switchLevel']['level'].value);
   }
-  if (main.temperatureMeasurement?.temperature?.value !== undefined) {
-    state.temperature = Number(main.temperatureMeasurement.temperature.value);
+  if (main['temperatureMeasurement']?.['temperature']?.value !== undefined) {
+    state.temperature = Number(main['temperatureMeasurement']['temperature'].value);
   }
-  if (main.relativeHumidityMeasurement?.humidity?.value !== undefined) {
-    state.humidity = Number(main.relativeHumidityMeasurement.humidity.value);
+  if (main['relativeHumidityMeasurement']?.['humidity']?.value !== undefined) {
+    state.humidity = Number(main['relativeHumidityMeasurement']['humidity'].value);
   }
-  if (main.motionSensor?.motion?.value !== undefined) {
-    state.motion = main.motionSensor.motion.value as 'active' | 'inactive';
+  if (main['motionSensor']?.['motion']?.value !== undefined) {
+    state.motion = main['motionSensor']['motion'].value as 'active' | 'inactive';
   }
-  if (main.illuminanceMeasurement?.illuminance?.value !== undefined) {
-    state.illuminance = Number(main.illuminanceMeasurement.illuminance.value);
+  if (main['illuminanceMeasurement']?.['illuminance']?.value !== undefined) {
+    state.illuminance = Number(main['illuminanceMeasurement']['illuminance'].value);
   }
-  if (main.battery?.battery?.value !== undefined) {
-    state.battery = Number(main.battery.battery.value);
+  if (main['battery']?.['battery']?.value !== undefined) {
+    state.battery = Number(main['battery']['battery'].value);
   }
-  if (main.contactSensor?.contact?.value !== undefined) {
-    state.contact = main.contactSensor.contact.value as 'open' | 'closed';
+  if (main['contactSensor']?.['contact']?.value !== undefined) {
+    state.contact = main['contactSensor']['contact'].value as 'open' | 'closed';
   }
-  if (main.occupancySensor?.occupancy?.value !== undefined) {
-    state.occupancy = main.occupancySensor.occupancy.value as 'occupied' | 'unoccupied';
+  if (main['occupancySensor']?.['occupancy']?.value !== undefined) {
+    state.occupancy = main['occupancySensor']['occupancy'].value as 'occupied' | 'unoccupied';
   }
-  if (main.waterSensor?.water?.value !== undefined) {
-    state.water = main.waterSensor.water.value as 'dry' | 'wet';
+  if (main['waterSensor']?.['water']?.value !== undefined) {
+    state.water = main['waterSensor']['water'].value as 'dry' | 'wet';
   }
-  if (main.smokeDetector?.smoke?.value !== undefined) {
-    state.smoke = main.smokeDetector.smoke.value as 'clear' | 'detected';
+  if (main['smokeDetector']?.['smoke']?.value !== undefined) {
+    state.smoke = main['smokeDetector']['smoke'].value as 'clear' | 'detected';
   }
-  if (main.carbonMonoxideDetector?.carbonMonoxide?.value !== undefined) {
-    state.carbonMonoxide = main.carbonMonoxideDetector.carbonMonoxide.value as
+  if (main['carbonMonoxideDetector']?.['carbonMonoxide']?.value !== undefined) {
+    state.carbonMonoxide = main['carbonMonoxideDetector']['carbonMonoxide'].value as
       | 'clear'
       | 'detected';
   }
-  if (main.airQualitySensor?.airQuality?.value !== undefined) {
-    state.airQuality = Number(main.airQualitySensor.airQuality.value);
+  if (main['airQualitySensor']?.['airQuality']?.value !== undefined) {
+    state.airQuality = Number(main['airQualitySensor']['airQuality'].value);
   }
-  if (main.pressureMeasurement?.pressure?.value !== undefined) {
-    state.pressure = Number(main.pressureMeasurement.pressure.value);
+  if (main['pressureMeasurement']?.['pressure']?.value !== undefined) {
+    state.pressure = Number(main['pressureMeasurement']['pressure'].value);
   }
-  if (main.soundSensor?.soundPressureLevel?.value !== undefined) {
-    state.soundPressureLevel = Number(main.soundSensor.soundPressureLevel.value);
+  if (main['soundSensor']?.['soundPressureLevel']?.value !== undefined) {
+    state.soundPressureLevel = Number(main['soundSensor']['soundPressureLevel'].value);
   }
 
   // Return state only if we extracted at least one value (besides timestamp)
@@ -998,7 +998,7 @@ export class SmartThingsService implements ISmartThingsService {
     const installedApps = await retryWithBackoff(async () => {
       return await this.client.installedApps.list({
         locationId: locationId as string | undefined,
-        installedAppStatus: 'AUTHORIZED',
+        installedAppStatus: InstalledAppStatus.AUTHORIZED,
       });
     });
 

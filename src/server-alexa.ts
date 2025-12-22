@@ -1751,7 +1751,11 @@ export async function reinitializeSmartThingsAdapter(): Promise<void> {
   // Reinitialize with new tokens
   await initializeSmartThingsAdapter();
 
-  if (smartThingsAdapter?.isInitialized()) {
+  // Check if adapter was successfully initialized
+  // Note: Using type assertion because TypeScript can't infer that initializeSmartThingsAdapter
+  // may mutate the global smartThingsAdapter variable
+  const adapter = smartThingsAdapter as SmartThingsAdapter | null;
+  if (adapter !== null && adapter.isInitialized()) {
     logger.info('SmartThings adapter reinitialized successfully');
   } else {
     logger.warn('SmartThings adapter reinitialization did not complete');
