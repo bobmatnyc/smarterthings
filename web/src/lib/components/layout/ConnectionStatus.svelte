@@ -27,7 +27,10 @@
 	const deviceStore = getDeviceStore();
 
 	// Reactive connection status from device store
-	let connected = $derived(deviceStore.sseConnected);
+	// FIX: Use $derived.by() to properly track getter changes across component boundaries
+	// The getter deviceStore.sseConnected returns module-level $state, which requires
+	// explicit reactivity tracking in Svelte 5 when accessed from a different component
+	let connected = $derived.by(() => deviceStore.sseConnected);
 
 	// Derive status for display
 	let status = $derived(connected ? 'connected' : 'reconnecting');
