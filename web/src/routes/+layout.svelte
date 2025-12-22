@@ -38,11 +38,14 @@
 	import ChatSidebar from '$lib/components/chat/ChatSidebar.svelte';
 	import LoadingSpinner from '$lib/components/loading/LoadingSpinner.svelte';
 	import { getChatStore } from '$lib/stores/chatStore.svelte';
+	import { getDeviceStore } from '$lib/stores/deviceStore.svelte';
+	import { connectDeviceSSE } from '$lib/sse/deviceStream.svelte';
 	import { Toaster } from 'svelte-sonner';
 	import { FOOTER_LABELS } from '$lib/constants/labels';
 
 	let { children } = $props();
 	const chatStore = getChatStore();
+	const deviceStore = getDeviceStore();
 
 	// Backend URL from environment or default
 	const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5182';
@@ -56,7 +59,7 @@
 	const copyrightText = FOOTER_LABELS.copyright(currentYear);
 
 	/**
-	 * Global Authentication Check
+	 * Global Authentication Check + SSE Connection
 	 *
 	 * Design Decision: Check auth at layout level, not in every page
 	 * Rationale: Single check prevents duplicate code and race conditions
@@ -65,7 +68,7 @@
 	 * 1. Skip check for public routes (/auth)
 	 * 2. Check /health endpoint for SmartThings initialization
 	 * 3. If not authenticated, redirect to /auth
-	 * 4. If authenticated, render app normally
+	 * 4. If authenticated, establish SSE connection and render app normally
 	 */
 	onMount(async () => {
 		// Skip auth check for public routes
@@ -91,7 +94,17 @@
 			if (!isAuthenticated) {
 				// Redirect to auth page
 				goto('/auth');
+				return;
 			}
+
+			// Connect to SSE stream for real-time device updates
+			// This ensures SSE is connected on ALL routes (/rooms, /devices, etc.)
+			const cleanupSSE = connectDeviceSSE(deviceStore);
+
+			// Return cleanup function
+			return () => {
+				cleanupSSE();
+			};
 		} catch (error) {
 			console.error('Auth check failed:', error);
 			authChecked = true;

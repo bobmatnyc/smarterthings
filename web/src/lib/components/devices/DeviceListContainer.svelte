@@ -24,7 +24,6 @@
 
 	import { getDeviceStore } from '$lib/stores/deviceStore.svelte';
 	import { getRoomStore } from '$lib/stores/roomStore.svelte';
-	import { connectDeviceSSE } from '$lib/sse/deviceStream.svelte';
 	import DeviceFilter from './DeviceFilter.svelte';
 	import DeviceGrid from './DeviceGrid.svelte';
 	import DeviceCard from './DeviceCard.svelte';
@@ -37,20 +36,14 @@
 	const roomStore = getRoomStore();
 
 	/**
-	 * Load devices, rooms, and connect SSE on mount
+	 * Load devices and rooms on mount
+	 * Note: SSE connection is now established in root layout (+layout.svelte)
+	 * to ensure it's connected on ALL routes (/rooms, /devices, etc.)
 	 */
 	$effect(() => {
 		// Load devices and rooms from API
 		store.loadDevices();
 		roomStore.loadRooms();
-
-		// Connect to SSE stream for real-time updates
-		const cleanup = connectDeviceSSE(store);
-
-		// Cleanup SSE connection on unmount
-		return () => {
-			cleanup();
-		};
 	});
 
 	/**
