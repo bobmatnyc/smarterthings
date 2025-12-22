@@ -57,11 +57,14 @@ interface SceneInfo {
 
 /**
  * Backend API response type
- * API returns: { success: true, data: [...] } where data is the scenes array
+ * API returns: { success: true, data: { count: N, scenes: [...] } }
  */
 interface ScenesResponse {
 	success: boolean;
-	data: SceneInfo[];
+	data: {
+		count: number;
+		scenes: SceneInfo[];
+	};
 	error?: {
 		message: string;
 	};
@@ -145,8 +148,8 @@ export async function loadScenes(): Promise<void> {
 		const newSceneMap = new Map<string, Scene>();
 
 		// Extract scenes array from response
-		// API returns: { success: true, data: [...] } where data is the scenes array
-		const scenesArray = result.data || [];
+		// API returns: { success: true, data: { count: N, scenes: [...] } }
+		const scenesArray = result.data?.scenes || [];
 
 		scenesArray.forEach((sceneInfo: SceneInfo) => {
 			const scene: Scene = {
