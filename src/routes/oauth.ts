@@ -55,11 +55,12 @@ const callbackSchema = z.object({
 const oauthStates = new Map<string, { timestamp: number }>();
 
 /**
- * Clean up expired OAuth states (older than 60 minutes)
+ * Clean up expired OAuth states (older than 24 hours)
+ * Extended TTL for dashboard applications where users may take longer to complete auth
  */
 function cleanupExpiredStates(): void {
   const now = Date.now();
-  const expiryMs = 60 * 60 * 1000; // 60 minutes (industry standard: GitHub 30min, Google 60min)
+  const expiryMs = 24 * 60 * 60 * 1000; // 24 hours (extended for dashboard apps)
 
   for (const [state, data] of oauthStates.entries()) {
     if (now - data.timestamp > expiryMs) {
