@@ -110,10 +110,10 @@
 						</span>
 					{/if}
 				</div>
-				<!-- Device Type Subtitle (Ticket 1M-603) -->
-				{#if device.name && device.label !== device.name}
-					<p class="text-sm text-gray-500 dark:text-gray-400 truncate" title={device.name}>
-						{device.name}
+				<!-- Device Type Subtitle - Show technical device type -->
+				{#if device.model}
+					<p class="text-xs text-gray-500 dark:text-gray-400 truncate" title={device.model}>
+						{device.model}
 					</p>
 				{/if}
 				{#if device.room}
