@@ -70,6 +70,12 @@ const environmentSchema = z.object({
 
   // Transport Configuration
   TRANSPORT_MODE: z.enum(['stdio', 'http']).default('stdio'),
+
+  // Device Polling Configuration
+  AUTO_START_POLLING: z
+    .string()
+    .transform((val) => val === 'true')
+    .default('true'),
 });
 
 /**

@@ -2042,6 +2042,15 @@ export async function reinitializeSmartThingsAdapter(): Promise<void> {
 
     // Initialize subscription service context
     await initializeSubscriptionContext();
+
+    // Auto-start device polling if configured
+    if (environment.AUTO_START_POLLING) {
+      const pollingService = getDevicePollingService();
+      if (pollingService) {
+        pollingService.start();
+        logger.info('[DevicePolling] Auto-started after OAuth reinitialization');
+      }
+    }
   } else {
     logger.warn('SmartThings adapter reinitialization did not complete');
   }
@@ -2083,6 +2092,19 @@ export async function startAlexaServer(): Promise<FastifyInstance> {
 
     // Try to initialize SmartThings adapter (optional - may fail if no credentials)
     await initializeSmartThingsAdapter();
+
+    // Auto-start device polling if configured
+    if (environment.AUTO_START_POLLING) {
+      const pollingService = getDevicePollingService();
+      if (pollingService) {
+        pollingService.start();
+        logger.info('[DevicePolling] Auto-started on server boot', {
+          intervalMs: 5000,
+        });
+      } else {
+        logger.warn('[DevicePolling] Auto-start skipped (adapter not initialized)');
+      }
+    }
 
     // Register error handlers
     registerErrorHandlers(server);
