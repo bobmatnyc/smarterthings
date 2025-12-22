@@ -118,9 +118,9 @@ export class SmartThingsOAuthService {
     }
 
     // Prepare Basic Auth header: Base64(client_id:client_secret)
-    const basicAuth = Buffer.from(
-      `${this.config.clientId}:${this.config.clientSecret}`
-    ).toString('base64');
+    const basicAuth = Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString(
+      'base64'
+    );
 
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -131,16 +131,12 @@ export class SmartThingsOAuthService {
     try {
       logger.info('Exchanging authorization code for tokens');
 
-      const response = await axios.post<OAuthTokenResponse>(
-        TOKEN_ENDPOINT,
-        params.toString(),
-        {
-          headers: {
-            Authorization: `Basic ${basicAuth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      );
+      const response = await axios.post<OAuthTokenResponse>(TOKEN_ENDPOINT, params.toString(), {
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
 
       logger.info('Successfully obtained OAuth tokens', {
         expiresIn: response.data.expires_in,
@@ -172,9 +168,9 @@ export class SmartThingsOAuthService {
    * @throws Error if refresh fails (user must re-authorize)
    */
   async refreshAccessToken(refreshToken: string): Promise<OAuthTokenResponse> {
-    const basicAuth = Buffer.from(
-      `${this.config.clientId}:${this.config.clientSecret}`
-    ).toString('base64');
+    const basicAuth = Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString(
+      'base64'
+    );
 
     const params = new URLSearchParams({
       grant_type: 'refresh_token',
@@ -184,16 +180,12 @@ export class SmartThingsOAuthService {
     try {
       logger.info('Refreshing access token');
 
-      const response = await axios.post<OAuthTokenResponse>(
-        TOKEN_ENDPOINT,
-        params.toString(),
-        {
-          headers: {
-            Authorization: `Basic ${basicAuth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      );
+      const response = await axios.post<OAuthTokenResponse>(TOKEN_ENDPOINT, params.toString(), {
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
 
       logger.info('Successfully refreshed access token', {
         expiresIn: response.data.expires_in,
@@ -209,9 +201,7 @@ export class SmartThingsOAuthService {
 
         // Common error: refresh token expired or revoked
         if (error.response?.status === 401 || error.response?.status === 400) {
-          throw new Error(
-            'Refresh token expired or revoked. User must re-authorize.'
-          );
+          throw new Error('Refresh token expired or revoked. User must re-authorize.');
         }
 
         throw new Error(
@@ -240,9 +230,9 @@ export class SmartThingsOAuthService {
     token: string,
     tokenTypeHint: 'access_token' | 'refresh_token' = 'access_token'
   ): Promise<void> {
-    const basicAuth = Buffer.from(
-      `${this.config.clientId}:${this.config.clientSecret}`
-    ).toString('base64');
+    const basicAuth = Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString(
+      'base64'
+    );
 
     const params = new URLSearchParams({
       token,
@@ -252,16 +242,12 @@ export class SmartThingsOAuthService {
     try {
       logger.info('Revoking OAuth token', { tokenTypeHint });
 
-      await axios.post(
-        `${SMARTTHINGS_OAUTH_BASE}/revoke`,
-        params.toString(),
-        {
-          headers: {
-            Authorization: `Basic ${basicAuth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      );
+      await axios.post(`${SMARTTHINGS_OAUTH_BASE}/revoke`, params.toString(), {
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
 
       logger.info('Token revoked successfully', { tokenTypeHint });
     } catch (error) {
@@ -319,10 +305,7 @@ export class SmartThingsOAuthService {
    * @param bufferSeconds - Refresh if expiring within this many seconds (default: 3600 = 1 hour)
    * @returns True if token should be refreshed
    */
-  static shouldRefreshToken(
-    expiresAt: number,
-    bufferSeconds: number = 3600
-  ): boolean {
+  static shouldRefreshToken(expiresAt: number, bufferSeconds: number = 3600): boolean {
     const now = Math.floor(Date.now() / 1000);
     return now >= expiresAt - bufferSeconds;
   }
@@ -351,6 +334,6 @@ export const DEFAULT_SCOPES = [
   'x:devices:$',
   'x:devices:*',
   'r:locations:*',
-  'r:scenes:*',
-  'x:scenes:*',
+  'r:scenes:*',    // READ scenes
+  'x:scenes:*',    // EXECUTE scenes
 ];
