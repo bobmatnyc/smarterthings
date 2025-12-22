@@ -377,6 +377,7 @@ export class SmartThingsService implements ISmartThingsService {
       // Execute command with retry logic
       await retryWithBackoff(async () => {
         await this.client.devices.executeCommand(platformDeviceId, {
+          component: 'main',
           capability,
           command,
           arguments: args as (string | number | object)[] | undefined,
