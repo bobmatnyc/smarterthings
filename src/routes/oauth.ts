@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { SmartThingsOAuthService, DEFAULT_SCOPES } from '../smartthings/oauth-service.js';
+import { reinitializeSmartThingsAdapter } from '../server-alexa.js';
 import { TokenStorage } from '../storage/token-storage.js';
 import { TokenRefresher } from '../smartthings/token-refresher.js';
 import { environment } from '../config/environment.js';
@@ -38,10 +39,7 @@ const callbackSchema = z.object({
     .max(100, 'Error code too long')
     .regex(/^[a-z_]+$/, 'Invalid error code format')
     .optional(),
-  error_description: z
-    .string()
-    .max(500, 'Error description too long')
-    .optional(),
+  error_description: z.string().max(500, 'Error description too long').optional(),
 });
 
 /**
@@ -57,11 +55,11 @@ const callbackSchema = z.object({
 const oauthStates = new Map<string, { timestamp: number }>();
 
 /**
- * Clean up expired OAuth states (older than 10 minutes)
+ * Clean up expired OAuth states (older than 60 minutes)
  */
 function cleanupExpiredStates(): void {
   const now = Date.now();
-  const expiryMs = 10 * 60 * 1000; // 10 minutes
+  const expiryMs = 60 * 60 * 1000; // 60 minutes (industry standard: GitHub 30min, Google 60min)
 
   for (const [state, data] of oauthStates.entries()) {
     if (now - data.timestamp > expiryMs) {
@@ -283,9 +281,7 @@ export async function registerOAuthRoutes(server: FastifyInstance): Promise<void
         const tokens = await oauth.exchangeCodeForTokens(code, state, state);
 
         // Calculate expiry timestamp
-        const expiresAt = SmartThingsOAuthService.calculateExpiryTimestamp(
-          tokens.expires_in
-        );
+        const expiresAt = SmartThingsOAuthService.calculateExpiryTimestamp(tokens.expires_in);
 
         // Store encrypted tokens
         await storage.storeTokens(
@@ -303,6 +299,17 @@ export async function registerOAuthRoutes(server: FastifyInstance): Promise<void
 
         // Start background token refresh
         getTokenRefresher();
+
+        // Reinitialize SmartThings adapter with new tokens
+        try {
+          await reinitializeSmartThingsAdapter();
+          logger.info('SmartThings adapter reinitialized after OAuth');
+        } catch (reinitError) {
+          logger.warn('Failed to reinitialize adapter after OAuth', {
+            error: reinitError instanceof Error ? reinitError.message : String(reinitError),
+          });
+          // Continue anyway - adapter will retry on next request
+        }
 
         // Redirect to homepage on success
         // Note: Homepage will show success message if ?oauth=success is present
@@ -336,59 +343,62 @@ export async function registerOAuthRoutes(server: FastifyInstance): Promise<void
    * tokens are still deleted locally, but may remain valid on SmartThings side
    * until natural expiration (up to 24 hours for access tokens).
    */
-  server.post('/auth/smartthings/disconnect', async (_request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      logger.info('SmartThings disconnect requested');
+  server.post(
+    '/auth/smartthings/disconnect',
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        logger.info('SmartThings disconnect requested');
 
-      const storage = getTokenStorage();
-      const oauth = getOAuthService();
+        const storage = getTokenStorage();
+        const oauth = getOAuthService();
 
-      // Get tokens before deletion (needed for revocation)
-      const tokens = await storage.getTokens('default');
+        // Get tokens before deletion (needed for revocation)
+        const tokens = await storage.getTokens('default');
 
-      if (tokens) {
-        // Revoke tokens on SmartThings side (best effort - don't fail disconnect if this fails)
-        try {
-          logger.info('Revoking tokens on SmartThings');
+        if (tokens) {
+          // Revoke tokens on SmartThings side (best effort - don't fail disconnect if this fails)
+          try {
+            logger.info('Revoking tokens on SmartThings');
 
-          // Revoke access token
-          await oauth.revokeToken(tokens.accessToken, 'access_token');
+            // Revoke access token
+            await oauth.revokeToken(tokens.accessToken, 'access_token');
 
-          // Revoke refresh token
-          await oauth.revokeToken(tokens.refreshToken, 'refresh_token');
+            // Revoke refresh token
+            await oauth.revokeToken(tokens.refreshToken, 'refresh_token');
 
-          logger.info('Tokens revoked successfully on SmartThings');
-        } catch (revokeError) {
-          // Log warning but continue with local deletion
-          logger.warn('Token revocation failed, continuing with local deletion', {
-            error: revokeError instanceof Error ? revokeError.message : String(revokeError),
-          });
+            logger.info('Tokens revoked successfully on SmartThings');
+          } catch (revokeError) {
+            // Log warning but continue with local deletion
+            logger.warn('Token revocation failed, continuing with local deletion', {
+              error: revokeError instanceof Error ? revokeError.message : String(revokeError),
+            });
+          }
         }
+
+        // Delete tokens from local storage
+        await storage.deleteTokens('default');
+
+        logger.info('SmartThings disconnected successfully');
+
+        return {
+          success: true,
+          message: 'SmartThings disconnected successfully',
+        };
+      } catch (error) {
+        logger.error('Failed to disconnect SmartThings', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+
+        return reply.code(500).send({
+          success: false,
+          error: {
+            code: 'DISCONNECT_FAILED',
+            message: error instanceof Error ? error.message : 'Failed to disconnect',
+          },
+        });
       }
-
-      // Delete tokens from local storage
-      await storage.deleteTokens('default');
-
-      logger.info('SmartThings disconnected successfully');
-
-      return {
-        success: true,
-        message: 'SmartThings disconnected successfully',
-      };
-    } catch (error) {
-      logger.error('Failed to disconnect SmartThings', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-
-      return reply.code(500).send({
-        success: false,
-        error: {
-          code: 'DISCONNECT_FAILED',
-          message: error instanceof Error ? error.message : 'Failed to disconnect',
-        },
-      });
     }
-  });
+  );
 
   /**
    * GET /auth/smartthings/status - Check OAuth connection status
@@ -450,5 +460,7 @@ export async function registerOAuthRoutes(server: FastifyInstance): Promise<void
     }
   });
 
-  logger.info('OAuth routes registered (/auth/smartthings, /auth/smartthings/callback, /auth/smartthings/disconnect, /auth/smartthings/status)');
+  logger.info(
+    'OAuth routes registered (/auth/smartthings, /auth/smartthings/callback, /auth/smartthings/disconnect, /auth/smartthings/status)'
+  );
 }
