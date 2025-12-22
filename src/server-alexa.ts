@@ -76,6 +76,12 @@ import { getTokenStorage } from './storage/token-storage.js';
 import { registerWebhookRoutes } from './routes/webhook.js';
 import { registerEventsRoutes, broadcastEvent } from './routes/events.js';
 import { ConfigurationError } from './types/errors.js';
+import { SubscriptionService } from './smartthings/subscription-service.js';
+import { subscriptionRoutes } from './routes/subscriptions.js';
+import { DevicePollingService } from './services/device-polling-service.js';
+import { registerPollingRoutes } from './routes/polling.js';
+import { randomUUID } from 'crypto';
+import type { EventId, SmartHomeEventType, EventSource } from './queue/MessageQueue.js';
 
 /**
  * Server port (configurable via environment)
@@ -150,6 +156,16 @@ let messageQueue: MessageQueue | null = null;
  * Singleton EventStore instance for event persistence
  */
 let eventStore: EventStore | null = null;
+
+/**
+ * Singleton SubscriptionService instance for managing SmartThings subscriptions
+ */
+let subscriptionService: SubscriptionService | null = null;
+
+/**
+ * Singleton DevicePollingService instance for polling device state changes
+ */
+let devicePollingService: DevicePollingService | null = null;
 
 /**
  * Get or create ChatOrchestrator instance.
@@ -228,6 +244,150 @@ function getEventStore(): EventStore {
   }
 
   return eventStore;
+}
+
+/**
+ * Get or create SubscriptionService instance.
+ *
+ * Requires SmartThings client to be initialized.
+ *
+ * @returns SubscriptionService instance
+ */
+function getSubscriptionService(): SubscriptionService {
+  if (!subscriptionService) {
+    // Get SmartThings client from service
+    const client = (smartThingsService as any).client;
+    if (!client) {
+      throw new Error('SmartThings client not initialized');
+    }
+
+    subscriptionService = new SubscriptionService(client);
+    logger.info('[SubscriptionService] Initialized');
+  }
+
+  return subscriptionService;
+}
+
+/**
+ * Get or create DevicePollingService instance.
+ *
+ * Requires SmartThings adapter to be initialized.
+ *
+ * @returns DevicePollingService instance or null if adapter not ready
+ */
+function getDevicePollingService(): DevicePollingService | null {
+  if (!devicePollingService && smartThingsAdapter && smartThingsAdapter.isInitialized()) {
+    // Create polling service with device fetch function
+    // IMPORTANT: Must enrich devices with state data for polling to work
+    devicePollingService = new DevicePollingService(
+      async () => {
+        if (!smartThingsAdapter) {
+          throw new Error('SmartThings adapter not initialized');
+        }
+
+        // Get devices with metadata only
+        const devices = await smartThingsAdapter.listDevices();
+
+        logger.debug('[DevicePolling] Enriching devices with state', {
+          deviceCount: devices.length,
+        });
+
+        // Enrich with current state (parallel fetch for performance)
+        const enrichedDevices = await Promise.all(
+          devices.map(async (device) => {
+            try {
+              // Fetch device status from SmartThings API
+              // Use non-null assertion since we checked adapter initialization above
+              const deviceState = await smartThingsAdapter!.getDeviceState(device.platformDeviceId);
+
+              // Transform attributes from "capability.attribute" format to flat structure
+              // Example: { "switch.switch": "off", "dimmer.level": 90 } => { "switch": "off", "level": 90 }
+              const flatState: Record<string, any> = {};
+              for (const [key, value] of Object.entries(deviceState.attributes)) {
+                const parts = key.split('.');
+                if (parts.length === 2 && parts[1]) {
+                  const attributeName = parts[1]; // Extract "switch" from "switch.switch"
+                  flatState[attributeName] = value;
+                } else {
+                  // Fallback: use full key if no dot separator
+                  flatState[key] = value;
+                }
+              }
+
+              // Add state data to platformSpecific for polling comparison
+              return {
+                ...device,
+                platformSpecific: {
+                  ...device.platformSpecific,
+                  state: flatState, // Flattened state for polling service
+                },
+              };
+            } catch (error) {
+              // If status fetch fails, return device without state
+              logger.warn('[DevicePolling] Failed to fetch state for device', {
+                deviceId: device.platformDeviceId,
+                deviceName: device.name,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return device;
+            }
+          })
+        );
+
+        logger.debug('[DevicePolling] State enrichment complete', {
+          devicesWithState: enrichedDevices.filter((d) => d.platformSpecific?.['state']).length,
+          totalDevices: enrichedDevices.length,
+        });
+
+        return enrichedDevices;
+      },
+      {
+        intervalMs: 5000, // 5 seconds
+      }
+    );
+
+    // Connect polling events to event pipeline
+    devicePollingService.on('deviceEvent', async (event) => {
+      logger.debug('[DevicePolling] Event detected', {
+        deviceId: event.deviceId,
+        capability: event.capability,
+        value: event.value,
+      });
+
+      // Get event store and message queue
+      const store = getEventStore();
+      const queue = await getMessageQueue();
+
+      // Create SmartHomeEvent
+      const smartHomeEvent = {
+        id: randomUUID() as EventId,
+        type: event.eventType as SmartHomeEventType,
+        source: event.source as EventSource,
+        deviceId: event.deviceId as DeviceId,
+        deviceName: event.deviceName,
+        eventType: `${event.capability}.${event.attribute}`,
+        value: {
+          capability: event.capability,
+          attribute: event.attribute,
+          value: event.value,
+          previousValue: event.previousValue,
+        },
+        timestamp: event.timestamp,
+      };
+
+      // Store event
+      await store.saveEvent(smartHomeEvent);
+
+      // Queue for processing (broadcasts to SSE)
+      await queue.enqueue('device_event', smartHomeEvent);
+    });
+
+    logger.info('[DevicePollingService] Initialized', {
+      intervalMs: 5000,
+    });
+  }
+
+  return devicePollingService;
 }
 
 /**
@@ -350,8 +510,9 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
     const tokenStorage = getTokenStorage();
     const hasOAuthTokens = tokenStorage.hasTokens('default');
 
-    // Consider "initialized" if either adapter works OR tokens exist
-    const isConnected = adapterInitialized || hasOAuthTokens;
+    // Consider "connected" only if BOTH tokens exist AND adapter is initialized
+    // This ensures logout properly redirects to auth screen
+    const isConnected = hasOAuthTokens && adapterInitialized;
 
     return {
       status: 'healthy',
@@ -1587,6 +1748,33 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
     // Don't fail server startup - events API is optional
   }
 
+  // ====================================================================
+  // Subscription Routes (for managing SmartThings event subscriptions)
+  // ====================================================================
+  try {
+    const subService = getSubscriptionService();
+    await server.register(subscriptionRoutes, { subscriptionService: subService });
+    logger.info('Subscription routes registered successfully');
+  } catch (error) {
+    logger.error('Failed to register subscription routes', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // Don't fail server startup - subscriptions are optional
+  }
+
+  // ====================================================================
+  // Polling Routes (for device state polling control)
+  // ====================================================================
+  try {
+    await registerPollingRoutes(server, getDevicePollingService);
+    logger.info('Polling routes registered successfully');
+  } catch (error) {
+    logger.error('Failed to register polling routes', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // Don't fail server startup - polling is optional
+  }
+
   logger.info('API Routes registered:');
   logger.info('  OAuth:   GET    /auth/smartthings (initiate OAuth flow)');
   logger.info('  OAuth:   GET    /auth/smartthings/callback (OAuth callback)');
@@ -1601,6 +1789,15 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
   logger.info('  Events:  GET    /api/events/device/:deviceId');
   logger.info('  Events:  GET    /api/events/stream (SSE)');
   logger.info('  Webhook: POST   /webhook/smartthings');
+  logger.info('  Subscriptions: GET    /api/subscriptions');
+  logger.info('  Subscriptions: POST   /api/subscriptions/defaults');
+  logger.info('  Subscriptions: POST   /api/subscriptions');
+  logger.info('  Subscriptions: DELETE /api/subscriptions');
+  logger.info('  Subscriptions: GET    /api/subscriptions/capabilities');
+  logger.info('  Polling: GET    /api/polling/status');
+  logger.info('  Polling: POST   /api/polling/start');
+  logger.info('  Polling: POST   /api/polling/stop');
+  logger.info('  Polling: DELETE /api/polling/state');
   logger.info(
     'Other routes: /alexa, /alexa-smarthome, /api/chat, /api/devices/*, /api/automations, /health, /'
   );
@@ -1685,6 +1882,10 @@ async function initializeSmartThingsAdapter(): Promise<void> {
             expiresAt: new Date(tokens.expiresAt * 1000).toISOString(),
             scope: tokens.scope,
           });
+
+          // Initialize subscription service context
+          await initializeSubscriptionContext();
+
           return;
         }
       } catch (error) {
@@ -1713,6 +1914,9 @@ async function initializeSmartThingsAdapter(): Promise<void> {
     serviceContainer = new ServiceContainer(smartThingsService, smartThingsAdapter);
 
     logger.info('SmartThings adapter initialized with PAT');
+
+    // Initialize subscription service context
+    await initializeSubscriptionContext();
   } catch (error) {
     logger.warn('SmartThings adapter initialization failed', {
       error: error instanceof Error ? error.message : String(error),
@@ -1723,6 +1927,79 @@ async function initializeSmartThingsAdapter(): Promise<void> {
     smartThingsAdapter = null;
     serviceContainer = null;
   }
+}
+
+/**
+ * Initialize subscription service context with installedAppId and locationId
+ */
+async function initializeSubscriptionContext(): Promise<void> {
+  try {
+    // Get first location
+    const locations = await smartThingsService.listLocations();
+    if (locations.length === 0) {
+      logger.warn('No locations found, cannot initialize subscriptions');
+      return;
+    }
+
+    const firstLocation = locations[0];
+    if (!firstLocation) {
+      logger.warn('No valid location found');
+      return;
+    }
+    const locationId = firstLocation.locationId;
+
+    // Get installed apps to find installedAppId
+    const installedApps = await smartThingsService.listInstalledApps(locationId);
+    if (installedApps.length === 0) {
+      logger.warn('No installed apps found, cannot initialize subscriptions');
+      return;
+    }
+
+    // Use the first installed app (there should typically be one for the integration)
+    const firstApp = installedApps[0];
+    if (!firstApp) {
+      logger.warn('No valid installed app found');
+      return;
+    }
+    const installedAppId = firstApp.id;
+
+    // Set subscription service context
+    const subService = getSubscriptionService();
+    subService.setContext(installedAppId, locationId);
+
+    logger.info('Subscription service context initialized', {
+      installedAppId,
+      locationId,
+    });
+  } catch (error) {
+    logger.warn('Failed to initialize subscription service context', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Uninitialize SmartThings adapter on logout
+ */
+export async function uninitializeSmartThingsAdapter(): Promise<void> {
+  logger.info('Uninitializing SmartThings adapter after disconnect');
+
+  if (smartThingsAdapter) {
+    try {
+      // Adapter may have a dispose method - check first
+      if (typeof (smartThingsAdapter as any).dispose === 'function') {
+        await (smartThingsAdapter as any).dispose();
+      }
+    } catch (error) {
+      logger.warn('Error disposing adapter', { error });
+    }
+  }
+
+  smartThingsAdapter = null;
+  serviceContainer = null;
+  toolExecutor = null;
+
+  logger.info('SmartThings adapter uninitialized successfully');
 }
 
 /**
@@ -1762,6 +2039,9 @@ export async function reinitializeSmartThingsAdapter(): Promise<void> {
   const adapter = smartThingsAdapter as SmartThingsAdapter | null;
   if (adapter !== null && adapter.isInitialized()) {
     logger.info('SmartThings adapter reinitialized successfully');
+
+    // Initialize subscription service context
+    await initializeSubscriptionContext();
   } else {
     logger.warn('SmartThings adapter reinitialization did not complete');
   }
@@ -1831,6 +2111,12 @@ export async function startAlexaServer(): Promise<FastifyInstance> {
       logger.info(`Received ${signal}, shutting down gracefully`);
 
       try {
+        // Stop device polling
+        if (devicePollingService) {
+          devicePollingService.stop();
+          logger.info('Device polling service stopped');
+        }
+
         // Close message queue
         if (messageQueue) {
           await messageQueue.close();
