@@ -23,6 +23,7 @@
  */
 
 import { toast } from 'svelte-sonner';
+import { apiClient } from '$lib/api/client';
 
 export interface Rule {
 	id: string;
@@ -95,7 +96,7 @@ export async function loadRules(): Promise<void> {
 	error = null;
 
 	try {
-		const response = await fetch('/api/rules');
+		const response = await apiClient.fetch('/api/rules');
 
 		if (!response.ok) {
 			throw new Error(`Failed to fetch rules: ${response.statusText}`);
@@ -212,7 +213,7 @@ export async function executeRule(ruleId: string): Promise<boolean> {
 	}
 
 	try {
-		const response = await fetch(`/api/rules/${ruleId}/execute`, {
+		const response = await apiClient.fetch(`/api/rules/${ruleId}/execute`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' }
 		});
@@ -268,7 +269,7 @@ export async function setRuleEnabled(ruleId: string, enabled: boolean): Promise<
 	}
 
 	try {
-		const response = await fetch(`/api/rules/${ruleId}`, {
+		const response = await apiClient.fetch(`/api/rules/${ruleId}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ enabled })

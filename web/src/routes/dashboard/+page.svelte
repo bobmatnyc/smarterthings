@@ -23,6 +23,7 @@
 	import { getDashboardStore } from '$lib/stores/dashboardStore.svelte';
 	import { getEventsStore } from '$lib/stores/eventsStore.svelte';
 	import { getAlertStore } from '$lib/stores/alertStore.svelte';
+	import { apiClient } from '$lib/api/client';
 	import MondrianGrid from '$lib/components/dashboard/MondrianGrid.svelte';
 	import LoadingSpinner from '$lib/components/loading/LoadingSpinner.svelte';
 	import StatusCrawler from '$lib/components/dashboard/StatusCrawler.svelte';
@@ -76,8 +77,8 @@
 		console.log(`[Dashboard] Analyzing ${eventsToAnalyze.length} buffered events for alerts`);
 
 		try {
-			// Call backend API for alert analysis
-			const response = await fetch('http://localhost:5182/api/dashboard/analyze-event', {
+			// Call backend API for alert analysis (via apiClient for 401 handling)
+			const response = await apiClient.fetch('http://localhost:5182/api/dashboard/analyze-event', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'

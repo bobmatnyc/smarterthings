@@ -17,6 +17,8 @@
  * - Scenes are always "enabled" (manually triggered)
  */
 
+import { apiClient } from '$lib/api/client';
+
 export interface Automation {
 	id: string;
 	name: string;
@@ -89,13 +91,7 @@ export async function loadAutomations(): Promise<void> {
 	error = null;
 
 	try {
-		const response = await fetch('/api/automations');
-
-		if (!response.ok) {
-			throw new Error(`Failed to fetch scenes: ${response.statusText}`);
-		}
-
-		const result: AutomationsResponse = await response.json();
+		const result = await apiClient.getAutomations();
 
 		if (!result.success) {
 			throw new Error(result.error?.message || 'Failed to load scenes');
@@ -158,16 +154,7 @@ export async function toggleAutomation(automationId: string): Promise<boolean> {
 	}
 
 	try {
-		const response = await fetch(`/api/automations/${automationId}/execute`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' }
-		});
-
-		if (!response.ok) {
-			throw new Error(`Failed to execute scene: ${response.statusText}`);
-		}
-
-		const result = await response.json();
+		const result = await apiClient.executeScene(automationId);
 
 		if (!result.success) {
 			throw new Error(result.error?.message || 'Failed to execute scene');

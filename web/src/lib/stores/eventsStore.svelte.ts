@@ -154,7 +154,7 @@ export async function loadEvents(limit: number = 100): Promise<void> {
 	try {
 		console.log('[EventsStore] Fetching recent events...');
 
-		const response = await fetch(`http://localhost:5182/api/events?limit=${Math.min(limit, 500)}`);
+		const response = await apiClient.fetch(`http://localhost:5182/api/events?limit=${Math.min(limit, 500)}`);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);

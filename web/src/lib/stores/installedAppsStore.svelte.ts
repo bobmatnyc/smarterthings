@@ -10,6 +10,7 @@
 
 import { getCache, setCache, clearCache, CACHE_KEYS, DEFAULT_TTL } from '$lib/utils/cache';
 import { toast } from 'svelte-sonner';
+import { apiClient } from '$lib/api/client';
 
 export interface InstalledApp {
   id: string;
@@ -89,7 +90,7 @@ export async function loadInstalledApps(forceRefresh: boolean = false): Promise<
 
     // Cache miss or forced - fetch from API
     console.log('[InstalledAppsStore] Fetching installed apps from API...');
-    const response = await fetch('/api/installedapps');
+    const response = await apiClient.fetch('/api/installedapps');
 
     if (!response.ok) {
       throw new Error(`Failed to fetch installed apps: ${response.statusText}`);

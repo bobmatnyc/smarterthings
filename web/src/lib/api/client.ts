@@ -1,8 +1,46 @@
 import type { UnifiedDevice, DirectResult, DeviceId } from '$types';
 import { isSuccess } from '$types';
+import { goto } from '$app/navigation';
+import { browser } from '$app/environment';
 
 export class ApiClient {
 	private baseUrl = '/api';
+
+	/**
+	 * Internal fetch wrapper with 401 handling
+	 *
+	 * Design Decision: Centralized auth error handling
+	 * Rationale: All API calls should automatically redirect to /auth on 401
+	 * to re-authenticate instead of showing cryptic errors.
+	 *
+	 * @param url URL to fetch (relative or absolute)
+	 * @param options Fetch options
+	 * @returns Response object
+	 * @throws Error if session expired (after redirect)
+	 */
+	private async fetchWithAuth(url: string, options?: RequestInit): Promise<Response> {
+		const response = await fetch(url, options);
+
+		// Check for 401 Unauthorized (session expired)
+		if (response.status === 401) {
+			console.warn('[ApiClient] 401 Unauthorized - redirecting to auth');
+
+			// Only redirect in browser context (not during SSR)
+			if (browser) {
+				// Check if we're already on auth page to prevent redirect loop
+				const currentPath = window.location.pathname;
+				if (!currentPath.startsWith('/auth')) {
+					// Redirect to auth with session expired message
+					await goto('/auth?reason=session_expired');
+				}
+			}
+
+			// Throw error after redirect to prevent further processing
+			throw new Error('Session expired - please re-authenticate');
+		}
+
+		return response;
+	}
 
 	/**
 	 * List all devices with optional filters
@@ -22,7 +60,7 @@ export class ApiClient {
 			? `${this.baseUrl}/devices?${params.toString()}`
 			: `${this.baseUrl}/devices`;
 
-		const response = await fetch(url);
+		const response = await this.fetchWithAuth(url);
 		return response.json();
 	}
 
@@ -33,7 +71,7 @@ export class ApiClient {
 	 * @returns DirectResult with device status
 	 */
 	async getDeviceStatus(deviceId: DeviceId): Promise<DirectResult<any>> {
-		const response = await fetch(`${this.baseUrl}/devices/${deviceId}/status`);
+		const response = await this.fetchWithAuth(`${this.baseUrl}/devices/${deviceId}/status`);
 		return response.json();
 	}
 
@@ -44,7 +82,7 @@ export class ApiClient {
 	 * @returns DirectResult indicating success
 	 */
 	async turnOnDevice(deviceId: DeviceId): Promise<DirectResult<void>> {
-		const response = await fetch(`${this.baseUrl}/devices/${deviceId}/on`, {
+		const response = await this.fetchWithAuth(`${this.baseUrl}/devices/${deviceId}/on`, {
 			method: 'POST'
 		});
 		return response.json();
@@ -57,7 +95,7 @@ export class ApiClient {
 	 * @returns DirectResult indicating success
 	 */
 	async turnOffDevice(deviceId: DeviceId): Promise<DirectResult<void>> {
-		const response = await fetch(`${this.baseUrl}/devices/${deviceId}/off`, {
+		const response = await this.fetchWithAuth(`${this.baseUrl}/devices/${deviceId}/off`, {
 			method: 'POST'
 		});
 		return response.json();
@@ -71,7 +109,7 @@ export class ApiClient {
 	 * @returns DirectResult indicating success
 	 */
 	async setDeviceLevel(deviceId: DeviceId, level: number): Promise<DirectResult<void>> {
-		const response = await fetch(`${this.baseUrl}/devices/${deviceId}/level`, {
+		const response = await this.fetchWithAuth(`${this.baseUrl}/devices/${deviceId}/level`, {
 			method: 'PUT',
 			headers: {
 				'Content-Type': 'application/json'
@@ -105,7 +143,7 @@ export class ApiClient {
 	 * @returns DirectResult with room list
 	 */
 	async getRooms(): Promise<DirectResult<any>> {
-		const response = await fetch(`${this.baseUrl}/rooms`);
+		const response = await this.fetchWithAuth(`${this.baseUrl}/rooms`);
 		return response.json();
 	}
 
@@ -119,7 +157,7 @@ export class ApiClient {
 	 * @returns DirectResult with scenes list
 	 */
 	async getAutomations(): Promise<DirectResult<any>> {
-		const response = await fetch(`${this.baseUrl}/automations`);
+		const response = await this.fetchWithAuth(`${this.baseUrl}/automations`);
 		return response.json();
 	}
 
@@ -134,7 +172,7 @@ export class ApiClient {
 	 * @returns DirectResult indicating success
 	 */
 	async executeScene(sceneId: string): Promise<DirectResult<void>> {
-		const response = await fetch(`${this.baseUrl}/automations/${sceneId}/execute`, {
+		const response = await this.fetchWithAuth(`${this.baseUrl}/automations/${sceneId}/execute`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
@@ -150,6 +188,23 @@ export class ApiClient {
 		}
 
 		return response.json();
+	}
+
+	/**
+	 * Generic fetch method for arbitrary API calls
+	 * Exported for use in components that need direct API access
+	 *
+	 * @param url API endpoint (relative to baseUrl or absolute)
+	 * @param options Fetch options
+	 * @returns Response object
+	 */
+	async fetch(url: string, options?: RequestInit): Promise<Response> {
+		// If URL is relative and doesn't start with /api, prepend baseUrl
+		const fullUrl = url.startsWith('http') || url.startsWith('/api')
+			? url
+			: `${this.baseUrl}${url.startsWith('/') ? url : `/${url}`}`;
+
+		return this.fetchWithAuth(fullUrl, options);
 	}
 }
 

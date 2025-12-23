@@ -32,6 +32,7 @@
  */
 
 import { toast } from 'svelte-sonner';
+import { apiClient } from '$lib/api/client';
 
 export interface Scene {
 	id: string; // Maps from backend sceneId
@@ -132,13 +133,7 @@ export async function loadScenes(): Promise<void> {
 	error = null;
 
 	try {
-		const response = await fetch('/api/automations');
-
-		if (!response.ok) {
-			throw new Error(`Failed to fetch scenes: ${response.statusText}`);
-		}
-
-		const result: ScenesResponse = await response.json();
+		const result = await apiClient.getAutomations();
 
 		if (!result.success) {
 			throw new Error(result.error?.message || 'Failed to load scenes');
@@ -214,16 +209,7 @@ export async function executeScene(sceneId: string): Promise<boolean> {
 	}
 
 	try {
-		const response = await fetch(`/api/automations/${sceneId}/execute`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' }
-		});
-
-		if (!response.ok) {
-			throw new Error(`Failed to execute scene: ${response.statusText}`);
-		}
-
-		const result = await response.json();
+		const result = await apiClient.executeScene(sceneId);
 
 		if (!result.success) {
 			throw new Error(result.error?.message || 'Failed to execute scene');

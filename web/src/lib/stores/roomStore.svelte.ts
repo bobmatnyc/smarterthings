@@ -110,8 +110,7 @@ export async function loadRooms(forceRefresh: boolean = false): Promise<void> {
 
 		// Cache miss or forced - fetch from API
 		console.log('[RoomStore] Fetching rooms from API...');
-		const response = await fetch('/api/rooms');
-		const result: RoomsResponse = await response.json();
+		const result = await apiClient.getRooms();
 
 		if (result.success) {
 			const newRoomMap = new Map<string, Room>();
