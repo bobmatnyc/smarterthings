@@ -1,6 +1,6 @@
 {
   "name": "@bobmatnyc/smarterthings",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Smarter Things - AI-powered LLM controller for SmartThings via Model Context Protocol (MCP)",
   "type": "module",
   "main": "./dist/index.js",
