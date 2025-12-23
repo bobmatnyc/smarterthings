@@ -34,6 +34,7 @@
 	}
 
 	const navItems: NavItem[] = [
+		{ label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
 		{ label: 'Rooms', href: '/', icon: 'home' },
 		{ label: 'Devices', href: '/devices', icon: 'devices' },
 		{ label: 'Scenes', href: '/automations', icon: 'automation' },
@@ -160,6 +161,11 @@
 		mask-position: center;
 		-webkit-mask-repeat: no-repeat;
 		mask-repeat: no-repeat;
+	}
+
+	.nav-icon[data-icon='dashboard']::before {
+		-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Crect x='3' y='3' width='7' height='7'%3E%3C/rect%3E%3Crect x='14' y='3' width='7' height='7'%3E%3C/rect%3E%3Crect x='14' y='14' width='7' height='7'%3E%3C/rect%3E%3Crect x='3' y='14' width='7' height='7'%3E%3C/rect%3E%3C/svg%3E");
+		mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Crect x='3' y='3' width='7' height='7'%3E%3C/rect%3E%3Crect x='14' y='3' width='7' height='7'%3E%3C/rect%3E%3Crect x='14' y='14' width='7' height='7'%3E%3C/rect%3E%3Crect x='3' y='14' width='7' height='7'%3E%3C/rect%3E%3C/svg%3E");
 	}
 
 	.nav-icon[data-icon='home']::before {

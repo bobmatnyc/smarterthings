@@ -19,6 +19,9 @@
 	 */
 
 	import { onMount, onDestroy } from 'svelte';
+	import { getDashboardStore } from '$lib/stores/dashboardStore.svelte';
+
+	const dashboardStore = getDashboardStore();
 
 	// ============================================================================
 	// STATE (Svelte 5 Runes)
@@ -37,6 +40,22 @@
 	// ============================================================================
 
 	let displayText = $derived(error ? 'Unable to load status. Retrying...' : summary);
+
+	/**
+	 * Map crawler speed to animation duration
+	 * slow = 90s, medium = 60s, fast = 30s
+	 */
+	let animationDuration = $derived.by(() => {
+		switch (dashboardStore.crawlerSpeed) {
+			case 'slow':
+				return '90s';
+			case 'fast':
+				return '30s';
+			case 'medium':
+			default:
+				return '60s';
+		}
+	});
 
 	// ============================================================================
 	// LIFECYCLE
@@ -94,7 +113,7 @@
 </script>
 
 <div class="status-crawler" role="status" aria-live="polite" aria-label="Smart home status">
-	<div class="crawler-inner">
+	<div class="crawler-inner" style="animation-duration: {animationDuration};">
 		<div class="crawler-text" class:loading class:error>
 			{displayText}
 			{#if eventCount > 0}
@@ -129,7 +148,7 @@
 		height: 100%;
 		align-items: center;
 		white-space: nowrap;
-		animation: crawl 60s linear infinite;
+		animation: crawl linear infinite;
 	}
 
 	.crawler-text {
@@ -193,18 +212,10 @@
 			font-size: 0.75rem;
 			margin-left: 0.75rem;
 		}
-
-		.crawler-inner {
-			animation: crawl 45s linear infinite; /* Faster on mobile */
-		}
 	}
 
 	/* Reduced motion support */
 	@media (prefers-reduced-motion: reduce) {
-		.crawler-inner {
-			animation: crawl 120s linear infinite; /* Slower for accessibility */
-		}
-
 		.crawler-text.loading {
 			animation: none;
 		}

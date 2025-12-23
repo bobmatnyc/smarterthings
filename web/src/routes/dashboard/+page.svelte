@@ -28,6 +28,7 @@
 	import StatusCrawler from '$lib/components/dashboard/StatusCrawler.svelte';
 	import AlertOverlay from '$lib/components/dashboard/AlertOverlay.svelte';
 	import ConfigModal from '$lib/components/dashboard/ConfigModal.svelte';
+	import DashboardErrorBoundary from '$lib/components/dashboard/DashboardErrorBoundary.svelte';
 
 	const roomStore = getRoomStore();
 	const deviceStore = getDeviceStore();
@@ -182,73 +183,75 @@
 	<meta name="description" content="Mondrian-style smart home dashboard" />
 </svelte:head>
 
-<div class="dashboard-container">
-	<!-- Status Crawler with LLM Summary -->
-	{#if dashboardStore.showStatusCrawler}
-		<StatusCrawler />
-	{/if}
+<DashboardErrorBoundary>
+	<div class="dashboard-container">
+		<!-- Status Crawler with LLM Summary -->
+		{#if dashboardStore.showStatusCrawler}
+			<StatusCrawler />
+		{/if}
 
-	<!-- Alert Overlay (if alerts enabled) -->
-	{#if dashboardStore.showAlerts}
-		<AlertOverlay />
-	{/if}
+		<!-- Alert Overlay (if alerts enabled) -->
+		{#if dashboardStore.showAlerts}
+			<AlertOverlay />
+		{/if}
 
-	<!-- Main Content -->
-	{#if roomStore.loading || deviceStore.loading}
-		<!-- Loading State -->
-		<div class="loading-container">
-			<LoadingSpinner size="48px" label="Loading dashboard" />
-			<p class="loading-text">Fetching your rooms and devices...</p>
-		</div>
-	{:else if roomStore.error || deviceStore.error}
-		<!-- Error State -->
-		<div class="error-container">
-			<div class="error-icon">
-				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<circle cx="12" cy="12" r="10"></circle>
-					<line x1="12" y1="8" x2="12" y2="12"></line>
-					<line x1="12" y1="16" x2="12.01" y2="16"></line>
-				</svg>
+		<!-- Main Content -->
+		{#if roomStore.loading || deviceStore.loading}
+			<!-- Loading State -->
+			<div class="loading-container">
+				<LoadingSpinner size="48px" label="Loading dashboard" />
+				<p class="loading-text">Fetching your rooms and devices...</p>
 			</div>
-			<h2 class="error-title">Failed to Load Dashboard</h2>
-			<p class="error-description">
-				{roomStore.error || deviceStore.error}
-			</p>
-			<button class="retry-button" onclick={() => { roomStore.loadRooms(); deviceStore.loadDevices(); }}>
-				Try Again
-			</button>
-		</div>
-	{:else}
-		<!-- Mondrian Grid -->
-		<MondrianGrid
-			rooms={roomStore.rooms}
-			devices={deviceStore.devices}
-			hiddenRooms={dashboardStore.hiddenRooms}
-		/>
-	{/if}
+		{:else if roomStore.error || deviceStore.error}
+			<!-- Error State -->
+			<div class="error-container">
+				<div class="error-icon">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="10"></circle>
+						<line x1="12" y1="8" x2="12" y2="12"></line>
+						<line x1="12" y1="16" x2="12.01" y2="16"></line>
+					</svg>
+				</div>
+				<h2 class="error-title">Failed to Load Dashboard</h2>
+				<p class="error-description">
+					{roomStore.error || deviceStore.error}
+				</p>
+				<button class="retry-button" onclick={() => { roomStore.loadRooms(); deviceStore.loadDevices(); }}>
+					Try Again
+				</button>
+			</div>
+		{:else}
+			<!-- Mondrian Grid -->
+			<MondrianGrid
+				rooms={roomStore.rooms}
+				devices={deviceStore.devices}
+				hiddenRooms={dashboardStore.hiddenRooms}
+			/>
+		{/if}
 
-	<!-- Config Button (bottom-right, always visible) -->
-	<button
-		class="config-button"
-		onclick={toggleConfig}
-		aria-label="Dashboard settings"
-		title="Dashboard settings"
-	>
-		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-			<circle cx="12" cy="12" r="3"></circle>
-			<path d="M12 1v6m0 6v6m5.196-15.392l-3 3m-6.392 6.392l-3 3m15.392-.196l-3-3m-6.392-6.392l-3-3"></path>
-		</svg>
-	</button>
+		<!-- Config Button (bottom-right, always visible) -->
+		<button
+			class="config-button"
+			onclick={toggleConfig}
+			aria-label="Dashboard settings"
+			title="Dashboard settings"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<circle cx="12" cy="12" r="3"></circle>
+				<path d="M12 1v6m0 6v6m5.196-15.392l-3 3m-6.392 6.392l-3 3m15.392-.196l-3-3m-6.392-6.392l-3-3"></path>
+			</svg>
+		</button>
 
-	<!-- Config Modal -->
-	{#if showConfig}
-		<ConfigModal
-			rooms={roomStore.rooms}
-			devices={deviceStore.devices}
-			onClose={toggleConfig}
-		/>
-	{/if}
-</div>
+		<!-- Config Modal -->
+		{#if showConfig}
+			<ConfigModal
+				rooms={roomStore.rooms}
+				devices={deviceStore.devices}
+				onClose={toggleConfig}
+			/>
+		{/if}
+	</div>
+</DashboardErrorBoundary>
 
 <style>
 	.dashboard-container {
