@@ -312,11 +312,12 @@ export async function registerOAuthRoutes(server: FastifyInstance): Promise<void
           // Continue anyway - adapter will retry on next request
         }
 
-        // Redirect to homepage on success
-        // Note: Homepage will show success message if ?oauth=success is present
-        const dashboardUrl = `${environment.FRONTEND_URL}/?oauth=success`;
-        logger.info('Redirecting to homepage after successful OAuth', { dashboardUrl });
-        return reply.redirect(dashboardUrl);
+        // Redirect to callback page with countdown to allow adapter initialization
+        // The callback page shows a success message with a 3-second countdown before redirecting to dashboard
+        // This prevents race condition where dashboard checks /health before adapter finishes initializing
+        const callbackUrl = `${environment.FRONTEND_URL}/auth/callback?oauth=success`;
+        logger.info('Redirecting to callback page after successful OAuth', { callbackUrl });
+        return reply.redirect(callbackUrl);
       } catch (error) {
         logger.error('OAuth callback failed', {
           error: error instanceof Error ? error.message : String(error),
