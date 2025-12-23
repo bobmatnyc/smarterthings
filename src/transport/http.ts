@@ -7,6 +7,8 @@ import logger from '../utils/logger.js';
 import { getEventStore } from '../storage/event-store.js';
 import { MessageQueue } from '../queue/MessageQueue.js';
 import { getTokenStorage } from '../storage/token-storage.js';
+import { DashboardService } from '../services/dashboard-service.js';
+import { LlmService } from '../services/llm.js';
 
 /**
  * HTTP transport with Server-Sent Events (SSE) for MCP server.
@@ -65,6 +67,66 @@ export async function startHttpTransport(server: Server): Promise<void> {
       },
     });
   });
+
+  // Initialize Dashboard Service for LLM-powered summaries
+  let dashboardService: DashboardService | null = null;
+  const apiKey = process.env['OPENROUTER_API_KEY'];
+  if (apiKey) {
+    try {
+      const llmService = new LlmService({
+        apiKey,
+        model: 'anthropic/claude-3-haiku-20240307', // Cost-effective model for summaries
+      });
+      const eventStore = getEventStore();
+      dashboardService = new DashboardService(llmService, eventStore);
+      logger.info('[DashboardService] Initialized successfully');
+    } catch (error) {
+      logger.warn('[DashboardService] Failed to initialize', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  } else {
+    logger.warn('[DashboardService] OPENROUTER_API_KEY not set, dashboard summaries disabled');
+  }
+
+  // Dashboard API Routes
+  if (dashboardService) {
+    app.get('/api/dashboard/summary', async (_req, res) => {
+      const startTime = Date.now();
+      try {
+        logger.debug('[Dashboard API] GET /api/dashboard/summary');
+        const summary = await dashboardService!.generateSummary();
+        const duration = Date.now() - startTime;
+
+        logger.info('[Dashboard API] Summary generated', {
+          eventCount: summary.eventCount,
+          cached: duration < 100,
+          duration,
+        });
+
+        res.json({
+          success: true,
+          data: summary,
+        });
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.error('[Dashboard API] GET /api/dashboard/summary failed', {
+          error: error instanceof Error ? error.message : String(error),
+          duration,
+        });
+
+        res.status(500).json({
+          success: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: error instanceof Error ? error.message : 'Failed to generate summary',
+          },
+        });
+      }
+    });
+
+    logger.info('[Dashboard API] Routes registered: GET /api/dashboard/summary');
+  }
 
   // SSE device events endpoint
   const sseClients = new Set<express.Response>();
