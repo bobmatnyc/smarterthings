@@ -2135,6 +2135,17 @@ export async function reinitializeSmartThingsAdapter(): Promise<void> {
   if (adapter !== null && adapter.isInitialized()) {
     logger.info('SmartThings adapter reinitialized successfully');
 
+    // Update HTTP transport with new ServiceContainer
+    // This fixes the issue where http.ts holds a stale ServiceContainer reference
+    // after OAuth reinitialization, causing API routes to fail with 401
+    if (serviceContainer) {
+      const { initializeHttpTransport } = await import('./transport/http.js');
+      initializeHttpTransport(serviceContainer);
+      logger.info('HTTP transport updated with new ServiceContainer after OAuth');
+    } else {
+      logger.warn('ServiceContainer is null after reinitialization, HTTP transport not updated');
+    }
+
     // Initialize subscription service context
     await initializeSubscriptionContext();
 
