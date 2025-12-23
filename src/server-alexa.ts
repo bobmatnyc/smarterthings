@@ -80,6 +80,7 @@ import { SubscriptionService } from './smartthings/subscription-service.js';
 import { subscriptionRoutes } from './routes/subscriptions.js';
 import { DevicePollingService } from './services/device-polling-service.js';
 import { registerPollingRoutes } from './routes/polling.js';
+import { registerLocalRulesRoutes } from './routes/rules-local.js';
 import { randomUUID } from 'crypto';
 import type { EventId, SmartHomeEventType, EventSource } from './queue/MessageQueue.js';
 
@@ -1775,6 +1776,19 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
     // Don't fail server startup - polling is optional
   }
 
+  // ====================================================================
+  // Local Rules Engine Routes (for IF/THEN automation rules)
+  // ====================================================================
+  try {
+    await registerLocalRulesRoutes(server, smartThingsAdapter || undefined);
+    logger.info('Local rules engine routes registered successfully');
+  } catch (error) {
+    logger.error('Failed to register local rules routes', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // Don't fail server startup - local rules are optional
+  }
+
   logger.info('API Routes registered:');
   logger.info('  OAuth:   GET    /auth/smartthings (initiate OAuth flow)');
   logger.info('  OAuth:   GET    /auth/smartthings/callback (OAuth callback)');
@@ -1784,6 +1798,15 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
   logger.info('  Rules:   POST   /api/rules/:id/execute');
   logger.info('  Rules:   PATCH  /api/rules/:id');
   logger.info('  Rules:   DELETE /api/rules/:id');
+  logger.info('  Local Rules: GET    /api/rules/local');
+  logger.info('  Local Rules: POST   /api/rules/local');
+  logger.info('  Local Rules: POST   /api/rules/local/generate');
+  logger.info('  Local Rules: GET    /api/rules/local/:id');
+  logger.info('  Local Rules: PATCH  /api/rules/local/:id');
+  logger.info('  Local Rules: DELETE /api/rules/local/:id');
+  logger.info('  Local Rules: POST   /api/rules/local/:id/execute');
+  logger.info('  Local Rules: POST   /api/rules/local/:id/enable');
+  logger.info('  Local Rules: POST   /api/rules/local/:id/disable');
   logger.info('  Devices: PUT    /api/devices/:deviceId/level');
   logger.info('  Events:  GET    /api/events');
   logger.info('  Events:  GET    /api/events/device/:deviceId');
