@@ -50,7 +50,6 @@ export async function executeRule(
 
     // Record execution
     await getRulesStorage().recordExecution(rule.id);
-
   } catch (err) {
     success = false;
     error = err instanceof Error ? err.message : String(err);
@@ -146,9 +145,7 @@ async function executeDeviceCommand(action: DeviceCommandAction): Promise<Action
   }
 
   try {
-    logger.info(
-      `[RuleExecutor] Executing command: ${action.command} on device ${action.deviceId}`
-    );
+    logger.info(`[RuleExecutor] Executing command: ${action.command} on device ${action.deviceId}`);
 
     // Build command arguments
     const args = action.arguments || {};
@@ -205,7 +202,7 @@ async function executeDelay(action: DelayAction): Promise<ActionResult> {
   const startTime = Date.now();
 
   logger.info(`[RuleExecutor] Waiting ${action.seconds} seconds`);
-  await new Promise(resolve => setTimeout(resolve, action.seconds * 1000));
+  await new Promise((resolve) => setTimeout(resolve, action.seconds * 1000));
 
   return {
     actionType: 'delay',
@@ -223,7 +220,7 @@ async function executeSequence(action: SequenceAction): Promise<ActionResult> {
 
   try {
     if (mode === 'parallel') {
-      await Promise.all(action.actions.map(a => executeAction(a)));
+      await Promise.all(action.actions.map((a) => executeAction(a)));
     } else {
       for (const a of action.actions) {
         await executeAction(a);
@@ -279,6 +276,17 @@ async function executeRuleChain(ruleId: string): Promise<ActionResult> {
 
 /**
  * Log rule execution event
+ *
+ * Logs execution details to SQLite event store with queryable format.
+ * Event type: 'rule_execution' for easy filtering and analysis.
+ *
+ * Logged fields:
+ * - ruleId, ruleName: Rule identification
+ * - success, error: Execution outcome
+ * - triggeredBy: How the rule was triggered (event, manual, schedule, rule_chain)
+ * - actionsExecuted: Number of actions executed
+ * - durationMs: Total execution time
+ * - actionResults: Detailed results for each action (in metadata)
  */
 async function logExecutionEvent(
   rule: Rule,
@@ -298,14 +306,19 @@ async function logExecutionEvent(
       actionsExecuted: result.actionsExecuted,
       durationMs: result.durationMs,
       error: result.error,
+      // Add trigger context if available
+      triggerDeviceId: context.triggerEvent?.deviceId,
+      triggerValue: context.triggerEvent?.value,
     },
     timestamp: new Date(),
     metadata: {
       actionResults: result.actionResults,
+      startedAt: result.startedAt,
+      completedAt: result.completedAt,
     },
   };
 
-  // Log to file
+  // Log to file-based event store (SQLite in future)
   logEvent(event);
 }
 

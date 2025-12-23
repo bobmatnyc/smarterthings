@@ -26,11 +26,7 @@ import { z } from 'zod';
 import logger from '../utils/logger.js';
 import { getRulesStorage, initializeRulesStorage } from '../rules/storage.js';
 import { executeRule, setSmartThingsAdapter } from '../rules/executor.js';
-import type {
-  CreateRuleRequest,
-  UpdateRuleRequest,
-  RuleExecutionContext,
-} from '../rules/types.js';
+import type { CreateRuleRequest, UpdateRuleRequest, RuleExecutionContext } from '../rules/types.js';
 import { createRuleId } from '../rules/types.js';
 
 /**
@@ -156,56 +152,53 @@ export async function registerLocalRulesRoutes(
    * }
    * ```
    */
-  server.get<{ Params: { id: string } }>(
-    '/api/rules/local/:id',
-    async (request, reply) => {
-      const startTime = Date.now();
+  server.get<{ Params: { id: string } }>('/api/rules/local/:id', async (request, reply) => {
+    const startTime = Date.now();
 
-      try {
-        const { id } = request.params;
-        const storage = getRulesStorage();
-        const rule = storage.get(createRuleId(id));
+    try {
+      const { id } = request.params;
+      const storage = getRulesStorage();
+      const rule = storage.get(createRuleId(id));
 
-        if (!rule) {
-          logger.warn('[Rules API] Rule not found', { ruleId: id });
-          return reply.code(404).send({
-            success: false,
-            error: {
-              code: 'NOT_FOUND',
-              message: 'Rule not found',
-            },
-          });
-        }
-
-        const duration = Date.now() - startTime;
-
-        logger.debug('[Rules API] GET /api/rules/local/:id', {
-          ruleId: id,
-          duration,
-        });
-
-        return reply.send({
-          success: true,
-          data: rule,
-        });
-      } catch (error) {
-        const duration = Date.now() - startTime;
-
-        logger.error('[Rules API] GET /api/rules/local/:id failed', {
-          error: error instanceof Error ? error.message : String(error),
-          duration,
-        });
-
-        return reply.code(500).send({
+      if (!rule) {
+        logger.warn('[Rules API] Rule not found', { ruleId: id });
+        return reply.code(404).send({
           success: false,
           error: {
-            code: 'INTERNAL_ERROR',
-            message: error instanceof Error ? error.message : 'Failed to get rule',
+            code: 'NOT_FOUND',
+            message: 'Rule not found',
           },
         });
       }
+
+      const duration = Date.now() - startTime;
+
+      logger.debug('[Rules API] GET /api/rules/local/:id', {
+        ruleId: id,
+        duration,
+      });
+
+      return reply.send({
+        success: true,
+        data: rule,
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      logger.error('[Rules API] GET /api/rules/local/:id failed', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to get rule',
+        },
+      });
     }
-  );
+  });
 
   /**
    * POST /api/rules/local - Create new rule
@@ -220,65 +213,62 @@ export async function registerLocalRulesRoutes(
    * }
    * ```
    */
-  server.post<{ Body: CreateRuleRequest }>(
-    '/api/rules/local',
-    async (request, reply) => {
-      const startTime = Date.now();
+  server.post<{ Body: CreateRuleRequest }>('/api/rules/local', async (request, reply) => {
+    const startTime = Date.now();
 
-      try {
-        // Validate request body
-        const validatedBody = CreateRuleSchema.parse(request.body);
+    try {
+      // Validate request body
+      const validatedBody = CreateRuleSchema.parse(request.body);
 
-        const storage = getRulesStorage();
-        const rule = await storage.create(validatedBody, 'user');
+      const storage = getRulesStorage();
+      const rule = await storage.create(validatedBody, 'user');
 
-        const duration = Date.now() - startTime;
+      const duration = Date.now() - startTime;
 
-        logger.info('[Rules API] Created rule', {
-          ruleId: rule.id,
-          ruleName: rule.name,
+      logger.info('[Rules API] Created rule', {
+        ruleId: rule.id,
+        ruleName: rule.name,
+        duration,
+      });
+
+      return reply.code(201).send({
+        success: true,
+        data: rule,
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      // Handle Zod validation errors
+      if (error instanceof z.ZodError) {
+        logger.warn('[Rules API] Validation error', {
+          errors: error.errors,
           duration,
         });
 
-        return reply.code(201).send({
-          success: true,
-          data: rule,
-        });
-      } catch (error) {
-        const duration = Date.now() - startTime;
-
-        // Handle Zod validation errors
-        if (error instanceof z.ZodError) {
-          logger.warn('[Rules API] Validation error', {
-            errors: error.errors,
-            duration,
-          });
-
-          return reply.code(400).send({
-            success: false,
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'Invalid rule data',
-              details: error.errors,
-            },
-          });
-        }
-
-        logger.error('[Rules API] POST /api/rules/local failed', {
-          error: error instanceof Error ? error.message : String(error),
-          duration,
-        });
-
-        return reply.code(500).send({
+        return reply.code(400).send({
           success: false,
           error: {
-            code: 'INTERNAL_ERROR',
-            message: error instanceof Error ? error.message : 'Failed to create rule',
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid rule data',
+            details: error.errors,
           },
         });
       }
+
+      logger.error('[Rules API] POST /api/rules/local failed', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to create rule',
+        },
+      });
     }
-  );
+  });
 
   /**
    * PATCH /api/rules/local/:id - Update rule
@@ -383,56 +373,53 @@ export async function registerLocalRulesRoutes(
    * }
    * ```
    */
-  server.delete<{ Params: { id: string } }>(
-    '/api/rules/local/:id',
-    async (request, reply) => {
-      const startTime = Date.now();
+  server.delete<{ Params: { id: string } }>('/api/rules/local/:id', async (request, reply) => {
+    const startTime = Date.now();
 
-      try {
-        const { id } = request.params;
-        const storage = getRulesStorage();
-        const deleted = await storage.delete(createRuleId(id));
+    try {
+      const { id } = request.params;
+      const storage = getRulesStorage();
+      const deleted = await storage.delete(createRuleId(id));
 
-        if (!deleted) {
-          logger.warn('[Rules API] Rule not found for deletion', { ruleId: id });
-          return reply.code(404).send({
-            success: false,
-            error: {
-              code: 'NOT_FOUND',
-              message: 'Rule not found',
-            },
-          });
-        }
-
-        const duration = Date.now() - startTime;
-
-        logger.info('[Rules API] Deleted rule', {
-          ruleId: id,
-          duration,
-        });
-
-        return reply.send({
-          success: true,
-          message: 'Rule deleted',
-        });
-      } catch (error) {
-        const duration = Date.now() - startTime;
-
-        logger.error('[Rules API] DELETE /api/rules/local/:id failed', {
-          error: error instanceof Error ? error.message : String(error),
-          duration,
-        });
-
-        return reply.code(500).send({
+      if (!deleted) {
+        logger.warn('[Rules API] Rule not found for deletion', { ruleId: id });
+        return reply.code(404).send({
           success: false,
           error: {
-            code: 'INTERNAL_ERROR',
-            message: error instanceof Error ? error.message : 'Failed to delete rule',
+            code: 'NOT_FOUND',
+            message: 'Rule not found',
           },
         });
       }
+
+      const duration = Date.now() - startTime;
+
+      logger.info('[Rules API] Deleted rule', {
+        ruleId: id,
+        duration,
+      });
+
+      return reply.send({
+        success: true,
+        message: 'Rule deleted',
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      logger.error('[Rules API] DELETE /api/rules/local/:id failed', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to delete rule',
+        },
+      });
     }
-  );
+  });
 
   /**
    * POST /api/rules/local/:id/execute - Manually execute rule
@@ -523,57 +510,54 @@ export async function registerLocalRulesRoutes(
    * }
    * ```
    */
-  server.post<{ Params: { id: string } }>(
-    '/api/rules/local/:id/enable',
-    async (request, reply) => {
-      const startTime = Date.now();
+  server.post<{ Params: { id: string } }>('/api/rules/local/:id/enable', async (request, reply) => {
+    const startTime = Date.now();
 
-      try {
-        const { id } = request.params;
-        const storage = getRulesStorage();
-        const updated = await storage.setEnabled(createRuleId(id), true);
+    try {
+      const { id } = request.params;
+      const storage = getRulesStorage();
+      const updated = await storage.setEnabled(createRuleId(id), true);
 
-        if (!updated) {
-          logger.warn('[Rules API] Rule not found for enable', { ruleId: id });
-          return reply.code(404).send({
-            success: false,
-            error: {
-              code: 'NOT_FOUND',
-              message: 'Rule not found',
-            },
-          });
-        }
-
-        const duration = Date.now() - startTime;
-
-        logger.info('[Rules API] Enabled rule', {
-          ruleId: id,
-          ruleName: updated.name,
-          duration,
-        });
-
-        return reply.send({
-          success: true,
-          data: updated,
-        });
-      } catch (error) {
-        const duration = Date.now() - startTime;
-
-        logger.error('[Rules API] POST /api/rules/local/:id/enable failed', {
-          error: error instanceof Error ? error.message : String(error),
-          duration,
-        });
-
-        return reply.code(500).send({
+      if (!updated) {
+        logger.warn('[Rules API] Rule not found for enable', { ruleId: id });
+        return reply.code(404).send({
           success: false,
           error: {
-            code: 'INTERNAL_ERROR',
-            message: error instanceof Error ? error.message : 'Failed to enable rule',
+            code: 'NOT_FOUND',
+            message: 'Rule not found',
           },
         });
       }
+
+      const duration = Date.now() - startTime;
+
+      logger.info('[Rules API] Enabled rule', {
+        ruleId: id,
+        ruleName: updated.name,
+        duration,
+      });
+
+      return reply.send({
+        success: true,
+        data: updated,
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      logger.error('[Rules API] POST /api/rules/local/:id/enable failed', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to enable rule',
+        },
+      });
     }
-  );
+  });
 
   /**
    * POST /api/rules/local/:id/disable - Disable rule
@@ -740,9 +724,171 @@ export async function registerLocalRulesRoutes(
     }
   );
 
+  /**
+   * GET /api/rules/local/conflicts - Check for rule conflicts
+   *
+   * Analyzes all enabled rules to detect potential conflicts where multiple
+   * rules target the same device with opposing or duplicate commands.
+   *
+   * Response:
+   * ```json
+   * {
+   *   "success": true,
+   *   "data": {
+   *     "conflicts": [
+   *       {
+   *         "deviceId": "abc123",
+   *         "deviceName": "Living Room Light",
+   *         "rules": [...],
+   *         "severity": "warning",
+   *         "message": "Multiple rules send opposing commands (on/off) to device",
+   *         "conflictType": "opposing_commands"
+   *       }
+   *     ],
+   *     "count": 1,
+   *     "hasConflicts": true
+   *   }
+   * }
+   * ```
+   */
+  server.get('/api/rules/local/conflicts', async (_request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      const { detectConflicts } = await import('../rules/conflict-detector.js');
+      const conflicts = detectConflicts();
+
+      const duration = Date.now() - startTime;
+
+      logger.debug('[Rules API] GET /api/rules/local/conflicts', {
+        conflictCount: conflicts.length,
+        duration,
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          conflicts,
+          count: conflicts.length,
+          hasConflicts: conflicts.length > 0,
+        },
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      logger.error('[Rules API] GET /api/rules/local/conflicts failed', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to detect conflicts',
+        },
+      });
+    }
+  });
+
+  /**
+   * GET /api/rules/local/history - Get rule execution history
+   *
+   * Returns statistics and recent execution history for all rules.
+   * Includes event listener stats and per-rule execution counts.
+   *
+   * Response:
+   * ```json
+   * {
+   *   "success": true,
+   *   "data": {
+   *     "stats": {
+   *       "initialized": true,
+   *       "enabled": true,
+   *       "connected": true,
+   *       "processedEvents": 42,
+   *       "rulesTriggered": 15,
+   *       "rulesFailed": 2
+   *     },
+   *     "recentExecutions": [
+   *       {
+   *         "ruleId": "rule-123",
+   *         "ruleName": "Turn on lights at sunset",
+   *         "lastExecutedAt": "2024-01-15T18:30:00Z",
+   *         "executionCount": 5
+   *       }
+   *     ]
+   *   }
+   * }
+   * ```
+   */
+  server.get('/api/rules/local/history', async (_request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      const { getRulesEventListener } = await import('../rules/event-listener.js');
+      const listener = getRulesEventListener();
+      const stats = listener.getStats();
+      const storage = getRulesStorage();
+
+      // Get recent executions from rules (basic tracking)
+      const rules = storage.getAll();
+      const recentExecutions = rules
+        .filter((r) => r.lastExecutedAt)
+        .map((r) => ({
+          ruleId: r.id,
+          ruleName: r.name,
+          lastExecutedAt: r.lastExecutedAt,
+          executionCount: r.executionCount,
+          enabled: r.enabled,
+          priority: r.priority,
+        }))
+        .sort((a, b) => {
+          const dateA = new Date(a.lastExecutedAt!).getTime();
+          const dateB = new Date(b.lastExecutedAt!).getTime();
+          return dateB - dateA;
+        })
+        .slice(0, 50);
+
+      const duration = Date.now() - startTime;
+
+      logger.debug('[Rules API] GET /api/rules/local/history', {
+        executionCount: recentExecutions.length,
+        duration,
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          stats,
+          recentExecutions,
+          totalRules: rules.length,
+          rulesWithExecutions: recentExecutions.length,
+        },
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      logger.error('[Rules API] GET /api/rules/local/history failed', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to get execution history',
+        },
+      });
+    }
+  });
+
   logger.info('[Rules API] Routes registered:');
   logger.info('  GET    /api/rules/local');
   logger.info('  GET    /api/rules/local/:id');
+  logger.info('  GET    /api/rules/local/conflicts');
+  logger.info('  GET    /api/rules/local/history');
   logger.info('  POST   /api/rules/local');
   logger.info('  POST   /api/rules/local/generate');
   logger.info('  PATCH  /api/rules/local/:id');

@@ -83,6 +83,7 @@ import { registerPollingRoutes } from './routes/polling.js';
 import { registerLocalRulesRoutes } from './routes/rules-local.js';
 import { randomUUID } from 'crypto';
 import type { EventId, SmartHomeEventType, EventSource } from './queue/MessageQueue.js';
+import { getRulesEventListener } from './rules/event-listener.js';
 
 /**
  * Server port (configurable via environment)
@@ -167,6 +168,11 @@ let subscriptionService: SubscriptionService | null = null;
  * Singleton DevicePollingService instance for polling device state changes
  */
 let devicePollingService: DevicePollingService | null = null;
+
+/**
+ * Singleton RulesEventListener instance for automatic rule triggering
+ */
+let rulesEventListener: ReturnType<typeof getRulesEventListener> | null = null;
 
 /**
  * Get or create ChatOrchestrator instance.
@@ -267,6 +273,22 @@ function getSubscriptionService(): SubscriptionService {
   }
 
   return subscriptionService;
+}
+
+/**
+ * Get or create RulesEventListener instance.
+ *
+ * Lazily initializes the rules event listener with SmartThings adapter.
+ *
+ * @returns RulesEventListener instance or null if not initialized
+ */
+async function getRulesEventListenerInstance(): Promise<typeof rulesEventListener> {
+  if (!rulesEventListener) {
+    rulesEventListener = getRulesEventListener();
+    await rulesEventListener.initialize(smartThingsAdapter || undefined);
+    logger.info('[RulesEventListener] Initialized');
+  }
+  return rulesEventListener;
 }
 
 /**
@@ -2072,6 +2094,19 @@ export async function reinitializeSmartThingsAdapter(): Promise<void> {
       if (pollingService) {
         pollingService.start();
         logger.info('[DevicePolling] Auto-started after OAuth reinitialization');
+
+        // Connect rules event listener to polling service
+        try {
+          const listener = await getRulesEventListenerInstance();
+          if (listener) {
+            listener.connectToPollingService(pollingService);
+            logger.info('[RulesEventListener] Connected to polling service after OAuth reinitialization');
+          }
+        } catch (error) {
+          logger.error('[RulesEventListener] Failed to connect to polling service', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
     }
   } else {
@@ -2124,6 +2159,19 @@ export async function startAlexaServer(): Promise<FastifyInstance> {
         logger.info('[DevicePolling] Auto-started on server boot', {
           intervalMs: 5000,
         });
+
+        // Initialize and connect rules event listener to polling service
+        try {
+          const listener = await getRulesEventListenerInstance();
+          if (listener) {
+            listener.connectToPollingService(pollingService);
+            logger.info('[RulesEventListener] Connected to polling service - rules will auto-trigger on device events');
+          }
+        } catch (error) {
+          logger.error('[RulesEventListener] Failed to connect to polling service', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       } else {
         logger.warn('[DevicePolling] Auto-start skipped (adapter not initialized)');
       }
@@ -2156,6 +2204,12 @@ export async function startAlexaServer(): Promise<FastifyInstance> {
       logger.info(`Received ${signal}, shutting down gracefully`);
 
       try {
+        // Disconnect rules event listener
+        if (rulesEventListener) {
+          rulesEventListener.disconnect();
+          logger.info('Rules event listener disconnected');
+        }
+
         // Stop device polling
         if (devicePollingService) {
           devicePollingService.stop();
