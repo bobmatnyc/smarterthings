@@ -21,18 +21,24 @@ const STORAGE_KEY = 'smarterthings.dashboard';
 
 export interface DashboardConfig {
 	kioskMode: boolean;
+	kioskAutostart: boolean;
 	hiddenRooms: string[];
 	hiddenDevices: string[];
 	showStatusCrawler: boolean;
 	showAlerts: boolean;
+	crawlerSpeed: 'slow' | 'medium' | 'fast';
+	theme: 'light' | 'dark' | 'auto';
 }
 
 const DEFAULT_CONFIG: DashboardConfig = {
 	kioskMode: false,
+	kioskAutostart: false,
 	hiddenRooms: [],
 	hiddenDevices: [],
 	showStatusCrawler: true,
-	showAlerts: true
+	showAlerts: true,
+	crawlerSpeed: 'medium',
+	theme: 'auto'
 };
 
 // ============================================================================
@@ -165,6 +171,84 @@ export function setShowAlerts(show: boolean): void {
 }
 
 /**
+ * Set crawler speed
+ */
+export function setCrawlerSpeed(speed: 'slow' | 'medium' | 'fast'): void {
+	config.crawlerSpeed = speed;
+	saveConfig(config);
+}
+
+/**
+ * Set theme preference
+ */
+export function setTheme(theme: 'light' | 'dark' | 'auto'): void {
+	config.theme = theme;
+	saveConfig(config);
+}
+
+/**
+ * Set kiosk autostart preference
+ */
+export function setKioskAutostart(enabled: boolean): void {
+	config.kioskAutostart = enabled;
+	saveConfig(config);
+}
+
+/**
+ * Show all rooms
+ */
+export function showAllRooms(): void {
+	config.hiddenRooms = [];
+	saveConfig(config);
+}
+
+/**
+ * Hide all rooms
+ */
+export function hideAllRooms(roomIds: string[]): void {
+	config.hiddenRooms = roomIds;
+	saveConfig(config);
+}
+
+/**
+ * Show all devices
+ */
+export function showAllDevices(): void {
+	config.hiddenDevices = [];
+	saveConfig(config);
+}
+
+/**
+ * Hide all devices
+ */
+export function hideAllDevices(deviceIds: string[]): void {
+	config.hiddenDevices = deviceIds;
+	saveConfig(config);
+}
+
+/**
+ * Toggle room visibility
+ */
+export function toggleRoomVisibility(roomId: string): void {
+	if (config.hiddenRooms.includes(roomId)) {
+		showRoom(roomId);
+	} else {
+		hideRoom(roomId);
+	}
+}
+
+/**
+ * Toggle device visibility
+ */
+export function toggleDeviceVisibility(deviceId: string): void {
+	if (config.hiddenDevices.includes(deviceId)) {
+		showDevice(deviceId);
+	} else {
+		hideDevice(deviceId);
+	}
+}
+
+/**
  * Reset dashboard config to defaults
  */
 export function resetConfig(): void {
@@ -200,6 +284,15 @@ export function getDashboardStore() {
 		get showAlerts() {
 			return config.showAlerts;
 		},
+		get crawlerSpeed() {
+			return config.crawlerSpeed;
+		},
+		get theme() {
+			return config.theme;
+		},
+		get kioskAutostart() {
+			return config.kioskAutostart;
+		},
 
 		// Computed
 		isRoomVisible,
@@ -214,6 +307,15 @@ export function getDashboardStore() {
 		showDevice,
 		setShowStatusCrawler,
 		setShowAlerts,
+		setCrawlerSpeed,
+		setTheme,
+		setKioskAutostart,
+		showAllRooms,
+		hideAllRooms,
+		showAllDevices,
+		hideAllDevices,
+		toggleRoomVisibility,
+		toggleDeviceVisibility,
 		resetConfig
 	};
 }

@@ -31,22 +31,94 @@
 	const currentYear = new Date().getFullYear();
 	const copyrightText = FOOTER_LABELS.copyright(currentYear);
 
+	// Cursor auto-hide state
+	let cursorVisible = $state(true);
+	let cursorTimeout: NodeJS.Timeout | null = null;
+
 	/**
-	 * ESC key handler to exit kiosk mode
+	 * ESC key handler to exit kiosk mode AND fullscreen
 	 */
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape' && dashboardStore.kioskMode) {
 			event.preventDefault();
-			dashboardStore.toggleKioskMode();
+			exitKioskMode();
 		}
 	}
+
+	/**
+	 * Exit kiosk mode and fullscreen
+	 */
+	async function exitKioskMode() {
+		// Exit fullscreen if active
+		if (document.fullscreenElement) {
+			try {
+				await document.exitFullscreen();
+			} catch (err) {
+				console.error('Failed to exit fullscreen:', err);
+			}
+		}
+		// Exit kiosk mode
+		dashboardStore.setKioskMode(false);
+	}
+
+	/**
+	 * Mouse move handler for cursor auto-hide
+	 */
+	function handleMouseMove() {
+		if (!dashboardStore.kioskMode) return;
+
+		// Show cursor
+		cursorVisible = true;
+
+		// Clear existing timeout
+		if (cursorTimeout) {
+			clearTimeout(cursorTimeout);
+		}
+
+		// Hide cursor after 3 seconds
+		cursorTimeout = setTimeout(() => {
+			cursorVisible = false;
+		}, 3000);
+	}
+
+	/**
+	 * Enter fullscreen mode
+	 */
+	async function enterFullscreen() {
+		try {
+			await document.documentElement.requestFullscreen();
+		} catch (err) {
+			console.error('Failed to enter fullscreen:', err);
+		}
+	}
+
+	/**
+	 * Watch for kiosk mode changes and trigger fullscreen
+	 */
+	$effect(() => {
+		if (dashboardStore.kioskMode) {
+			enterFullscreen();
+		}
+	});
 
 	onMount(() => {
 		// Setup ESC key listener
 		window.addEventListener('keydown', handleKeydown);
 
+		// Setup mouse move listener for cursor auto-hide
+		window.addEventListener('mousemove', handleMouseMove);
+
+		// Auto-enter kiosk mode if enabled
+		if (dashboardStore.kioskAutostart && !dashboardStore.kioskMode) {
+			dashboardStore.setKioskMode(true);
+		}
+
 		return () => {
 			window.removeEventListener('keydown', handleKeydown);
+			window.removeEventListener('mousemove', handleMouseMove);
+			if (cursorTimeout) {
+				clearTimeout(cursorTimeout);
+			}
 		};
 	});
 </script>
@@ -58,7 +130,7 @@
 
 {#if dashboardStore.kioskMode}
 	<!-- Kiosk Mode: Fullscreen without navigation -->
-	<div class="kiosk-container">
+	<div class="kiosk-container" class:hide-cursor={!cursorVisible}>
 		{@render children()}
 	</div>
 {:else}
@@ -106,6 +178,15 @@
 		background: rgb(249, 250, 251);
 		overflow: hidden;
 		z-index: 9999;
+	}
+
+	/* Hide cursor when inactive in kiosk mode */
+	.kiosk-container.hide-cursor {
+		cursor: none;
+	}
+
+	.kiosk-container.hide-cursor * {
+		cursor: none !important;
 	}
 
 	/* Normal Mode: Standard layout */
