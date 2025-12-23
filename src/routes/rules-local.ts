@@ -884,16 +884,642 @@ export async function registerLocalRulesRoutes(
     }
   });
 
+  // =========================================================================
+  // Phase 2: Advanced Trigger Endpoints
+  // =========================================================================
+
+  /**
+   * GET /api/rules/local/scheduler - Get scheduler status and jobs
+   *
+   * Returns information about the rules scheduler including:
+   * - Scheduler status (initialized, enabled)
+   * - List of scheduled jobs (time, cron, astronomical triggers)
+   * - Execution statistics
+   */
+  server.get('/api/rules/local/scheduler', async (_request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      const { getRulesScheduler } = await import('../rules/scheduler.js');
+      const scheduler = getRulesScheduler();
+
+      const stats = scheduler.getStats();
+      const jobs = scheduler.getScheduledJobs();
+
+      const duration = Date.now() - startTime;
+
+      return reply.send({
+        success: true,
+        data: {
+          stats,
+          scheduledJobs: jobs,
+          jobCount: jobs.length,
+        },
+        duration,
+      });
+    } catch (error) {
+      logger.error('[Rules API] GET /api/rules/local/scheduler failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to get scheduler status',
+        },
+      });
+    }
+  });
+
+  /**
+   * POST /api/rules/local/scheduler/enable - Enable scheduler
+   */
+  server.post('/api/rules/local/scheduler/enable', async (_request, reply) => {
+    try {
+      const { getRulesScheduler } = await import('../rules/scheduler.js');
+      const scheduler = getRulesScheduler();
+      scheduler.setEnabled(true);
+
+      return reply.send({
+        success: true,
+        message: 'Scheduler enabled',
+      });
+    } catch (error) {
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to enable scheduler',
+        },
+      });
+    }
+  });
+
+  /**
+   * POST /api/rules/local/scheduler/disable - Disable scheduler
+   */
+  server.post('/api/rules/local/scheduler/disable', async (_request, reply) => {
+    try {
+      const { getRulesScheduler } = await import('../rules/scheduler.js');
+      const scheduler = getRulesScheduler();
+      scheduler.setEnabled(false);
+
+      return reply.send({
+        success: true,
+        message: 'Scheduler disabled',
+      });
+    } catch (error) {
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to disable scheduler',
+        },
+      });
+    }
+  });
+
+  /**
+   * GET /api/rules/local/astronomical - Get astronomical times
+   *
+   * Returns today's sunrise, sunset, and other solar times based on location.
+   */
+  server.get('/api/rules/local/astronomical', async (_request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      const { getAstronomicalCalculator } = await import('../rules/astronomical.js');
+      const astro = getAstronomicalCalculator();
+
+      const summary = astro.getTodaysSummary();
+
+      const duration = Date.now() - startTime;
+
+      return reply.send({
+        success: true,
+        data: {
+          ...summary,
+          hasLocation: summary.location !== null,
+          formattedTimes: summary.times
+            ? {
+                sunrise: summary.times.sunrise.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                sunset: summary.times.sunset.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                dawn: summary.times.dawn.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                dusk: summary.times.dusk.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+              }
+            : null,
+        },
+        duration,
+      });
+    } catch (error) {
+      logger.error('[Rules API] GET /api/rules/local/astronomical failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to get astronomical times',
+        },
+      });
+    }
+  });
+
+  /**
+   * POST /api/rules/local/astronomical/location - Set location for astronomical calculations
+   *
+   * Body:
+   * - latitude: number (required)
+   * - longitude: number (required)
+   * - name: string (optional)
+   * - timezone: string (optional)
+   */
+  server.post<{
+    Body: { latitude: number; longitude: number; name?: string; timezone?: string };
+  }>('/api/rules/local/astronomical/location', async (request, reply) => {
+    try {
+      const { latitude, longitude, name, timezone } = request.body;
+
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        return reply.code(400).send({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Latitude and longitude are required numbers',
+          },
+        });
+      }
+
+      const { getAstronomicalCalculator } = await import('../rules/astronomical.js');
+      const astro = getAstronomicalCalculator();
+
+      astro.setLocation({
+        latitude,
+        longitude,
+        name,
+        timezone,
+      });
+
+      // Also refresh scheduler for astronomical triggers
+      const { getRulesScheduler } = await import('../rules/scheduler.js');
+      const scheduler = getRulesScheduler();
+      const storage = getRulesStorage();
+      const rules = storage.getEnabled();
+
+      for (const rule of rules) {
+        const hasAstro = rule.triggers.some((t) => t.type === 'astronomical');
+        if (hasAstro) {
+          scheduler.rescheduleRule(rule);
+        }
+      }
+
+      return reply.send({
+        success: true,
+        message: `Location set to ${name || `${latitude}, ${longitude}`}`,
+        data: astro.getTodaysSummary(),
+      });
+    } catch (error) {
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to set location',
+        },
+      });
+    }
+  });
+
+  /**
+   * GET /api/rules/local/duration - Get duration tracker status
+   *
+   * Returns tracked device states and pending duration triggers.
+   */
+  server.get('/api/rules/local/duration', async (_request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      const { getDurationTracker } = await import('../rules/duration-tracker.js');
+      const tracker = getDurationTracker();
+
+      const stats = tracker.getStats();
+      const trackedStates = tracker.getTrackedStates();
+
+      const duration = Date.now() - startTime;
+
+      return reply.send({
+        success: true,
+        data: {
+          stats,
+          trackedStates,
+        },
+        duration,
+      });
+    } catch (error) {
+      logger.error('[Rules API] GET /api/rules/local/duration failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to get duration tracker status',
+        },
+      });
+    }
+  });
+
+  /**
+   * POST /api/rules/local/:id/check-conditions - Check rule conditions
+   *
+   * Evaluates the conditions of a rule without executing it.
+   * Useful for debugging and testing conditions.
+   */
+  server.post<{ Params: { id: string } }>(
+    '/api/rules/local/:id/check-conditions',
+    async (request, reply) => {
+      const startTime = Date.now();
+
+      try {
+        const { id } = request.params;
+        const storage = getRulesStorage();
+        const rule = storage.get(createRuleId(id));
+
+        if (!rule) {
+          return reply.code(404).send({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Rule not found',
+            },
+          });
+        }
+
+        if (!rule.conditions || rule.conditions.length === 0) {
+          return reply.send({
+            success: true,
+            data: {
+              hasConditions: false,
+              result: { satisfied: true, reason: 'No conditions defined' },
+            },
+          });
+        }
+
+        const { getConditionEvaluator } = await import('../rules/condition-evaluator.js');
+        const evaluator = getConditionEvaluator();
+        const result = await evaluator.evaluateAll(rule.conditions);
+
+        const duration = Date.now() - startTime;
+
+        return reply.send({
+          success: true,
+          data: {
+            hasConditions: true,
+            conditionCount: rule.conditions.length,
+            result,
+          },
+          duration,
+        });
+      } catch (error) {
+        const duration = Date.now() - startTime;
+
+        logger.error('[Rules API] POST /api/rules/local/:id/check-conditions failed', {
+          error: error instanceof Error ? error.message : String(error),
+          duration,
+        });
+
+        return reply.code(500).send({
+          success: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: error instanceof Error ? error.message : 'Failed to check conditions',
+          },
+        });
+      }
+    }
+  );
+
+  // =========================================================================
+  // Phase 4: Event Analyzer and Pattern-Based Suggestions
+  // =========================================================================
+
+  /**
+   * GET /api/rules/local/analyzer - Get event analyzer status and stats
+   *
+   * Returns information about the event analyzer including:
+   * - Number of events recorded
+   * - Patterns detected
+   * - Suggestions generated
+   */
+  server.get('/api/rules/local/analyzer', async (_request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      const { getEventAnalyzer } = await import('../rules/event-analyzer.js');
+      const analyzer = getEventAnalyzer();
+
+      const stats = analyzer.getStats();
+      const eventCount = analyzer.getEvents().length;
+
+      const duration = Date.now() - startTime;
+
+      return reply.send({
+        success: true,
+        data: {
+          stats,
+          eventCount,
+          maxEvents: 10000, // From analyzer config
+        },
+        duration,
+      });
+    } catch (error) {
+      logger.error('[Rules API] GET /api/rules/local/analyzer failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to get analyzer status',
+        },
+      });
+    }
+  });
+
+  /**
+   * GET /api/rules/local/patterns - Get detected patterns from device events
+   *
+   * Analyzes recorded device events to find patterns including:
+   * - Time patterns: Devices used at consistent times
+   * - Correlations: Device A triggers after device B
+   *
+   * Query Parameters:
+   * - minOccurrences: Minimum occurrences to consider a pattern (default: 3)
+   * - toleranceMinutes: Time tolerance for time patterns (default: 15)
+   */
+  server.get('/api/rules/local/patterns', async (_request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      const { getDetectedPatterns, describePattern } = await import('../rules/generator.js');
+      const patterns = getDetectedPatterns();
+
+      // Add human-readable descriptions
+      const timePatterns = patterns.timePatterns.map((p) => ({
+        ...p,
+        description: describePattern(p),
+      }));
+
+      const correlations = patterns.correlations.map((p) => ({
+        ...p,
+        description: describePattern(p),
+      }));
+
+      const duration = Date.now() - startTime;
+
+      return reply.send({
+        success: true,
+        data: {
+          timePatterns,
+          correlations,
+          stats: patterns.stats,
+          totalPatterns: timePatterns.length + correlations.length,
+        },
+        duration,
+      });
+    } catch (error) {
+      logger.error('[Rules API] GET /api/rules/local/patterns failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to detect patterns',
+        },
+      });
+    }
+  });
+
+  /**
+   * GET /api/rules/local/suggestions - Get rule suggestions based on detected patterns
+   *
+   * Returns automation suggestions generated from device event patterns.
+   *
+   * Query Parameters:
+   * - minConfidence: Minimum confidence threshold 0-1 (default: 0.3)
+   * - maxSuggestions: Maximum number of suggestions (default: 10)
+   * - includeTimePatterns: Include time-based patterns (default: true)
+   * - includeCorrelations: Include correlation patterns (default: true)
+   */
+  server.get<{
+    Querystring: {
+      minConfidence?: string;
+      maxSuggestions?: string;
+      includeTimePatterns?: string;
+      includeCorrelations?: string;
+    };
+  }>('/api/rules/local/suggestions', async (request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      const minConfidence = parseFloat(request.query.minConfidence || '0.3');
+      const maxSuggestions = parseInt(request.query.maxSuggestions || '10', 10);
+      const includeTimePatterns = request.query.includeTimePatterns !== 'false';
+      const includeCorrelations = request.query.includeCorrelations !== 'false';
+
+      const { getPatternBasedSuggestions, describePattern } = await import('../rules/generator.js');
+
+      const suggestions = getPatternBasedSuggestions({
+        minConfidence,
+        maxSuggestions,
+        includeTimePatterns,
+        includeCorrelations,
+      });
+
+      // Format suggestions for API response
+      const formattedSuggestions = suggestions.map((s) => ({
+        patternType: s.pattern.type,
+        patternDescription: describePattern(s.pattern),
+        confidence: s.pattern.confidence,
+        occurrences: s.pattern.occurrences,
+        description: s.description,
+        reasoning: s.reasoning,
+        suggestedRule: s.suggestedRule,
+      }));
+
+      const duration = Date.now() - startTime;
+
+      return reply.send({
+        success: true,
+        data: {
+          suggestions: formattedSuggestions,
+          count: formattedSuggestions.length,
+        },
+        duration,
+      });
+    } catch (error) {
+      logger.error('[Rules API] GET /api/rules/local/suggestions failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to get suggestions',
+        },
+      });
+    }
+  });
+
+  /**
+   * POST /api/rules/local/suggestions/:index/accept - Accept a suggestion and create rule
+   *
+   * Creates a rule from a pattern suggestion. The rule starts disabled for review.
+   *
+   * Path Parameters:
+   * - index: Index of the suggestion to accept (0-based)
+   *
+   * Body (optional):
+   * - enabled: Whether to enable the rule immediately (default: false)
+   * - name: Override the suggested rule name
+   * - description: Override the suggested rule description
+   */
+  server.post<{
+    Params: { index: string };
+    Body: { enabled?: boolean; name?: string; description?: string };
+  }>('/api/rules/local/suggestions/:index/accept', async (request, reply) => {
+    const startTime = Date.now();
+
+    try {
+      const index = parseInt(request.params.index, 10);
+      const { enabled = false, name, description } = request.body || {};
+
+      const { getPatternBasedSuggestions } = await import('../rules/generator.js');
+      const suggestions = getPatternBasedSuggestions();
+
+      if (index < 0 || index >= suggestions.length) {
+        return reply.code(400).send({
+          success: false,
+          error: {
+            code: 'INVALID_INDEX',
+            message: `Invalid suggestion index. Available: 0-${suggestions.length - 1}`,
+          },
+        });
+      }
+
+      const suggestion = suggestions[index];
+      if (!suggestion) {
+        return reply.code(404).send({
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Suggestion not found',
+          },
+        });
+      }
+
+      // Create rule from suggestion with optional overrides
+      const ruleRequest = {
+        ...suggestion.suggestedRule,
+        enabled,
+        name: name || suggestion.suggestedRule.name,
+        description: description || suggestion.suggestedRule.description,
+      };
+
+      const storage = getRulesStorage();
+      const createdRule = await storage.create(ruleRequest);
+
+      const duration = Date.now() - startTime;
+
+      logger.info('[Rules API] Created rule from suggestion', {
+        ruleId: createdRule.id,
+        ruleName: createdRule.name,
+        patternType: suggestion.pattern.type,
+        confidence: suggestion.pattern.confidence,
+        duration,
+      });
+
+      return reply.code(201).send({
+        success: true,
+        data: createdRule,
+        message: `Rule "${createdRule.name}" created from pattern suggestion`,
+      });
+    } catch (error) {
+      logger.error('[Rules API] POST /api/rules/local/suggestions/:index/accept failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to accept suggestion',
+        },
+      });
+    }
+  });
+
+  /**
+   * DELETE /api/rules/local/analyzer/events - Clear recorded events
+   *
+   * Clears all recorded device events from the analyzer.
+   * Use after patterns have been reviewed or for testing.
+   */
+  server.delete('/api/rules/local/analyzer/events', async (_request, reply) => {
+    try {
+      const { clearAnalyzerEvents, getAnalyzerStats } = await import('../rules/generator.js');
+
+      const beforeStats = getAnalyzerStats();
+      clearAnalyzerEvents();
+      const afterStats = getAnalyzerStats();
+
+      return reply.send({
+        success: true,
+        message: 'Event analyzer cleared',
+        data: {
+          beforeClear: beforeStats,
+          afterClear: afterStats,
+        },
+      });
+    } catch (error) {
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to clear analyzer events',
+        },
+      });
+    }
+  });
+
   logger.info('[Rules API] Routes registered:');
   logger.info('  GET    /api/rules/local');
   logger.info('  GET    /api/rules/local/:id');
   logger.info('  GET    /api/rules/local/conflicts');
   logger.info('  GET    /api/rules/local/history');
+  logger.info('  GET    /api/rules/local/scheduler');
+  logger.info('  GET    /api/rules/local/astronomical');
+  logger.info('  GET    /api/rules/local/duration');
+  logger.info('  GET    /api/rules/local/analyzer');
+  logger.info('  GET    /api/rules/local/patterns');
+  logger.info('  GET    /api/rules/local/suggestions');
   logger.info('  POST   /api/rules/local');
   logger.info('  POST   /api/rules/local/generate');
+  logger.info('  POST   /api/rules/local/scheduler/enable');
+  logger.info('  POST   /api/rules/local/scheduler/disable');
+  logger.info('  POST   /api/rules/local/astronomical/location');
+  logger.info('  POST   /api/rules/local/suggestions/:index/accept');
+  logger.info('  DELETE /api/rules/local/analyzer/events');
   logger.info('  PATCH  /api/rules/local/:id');
   logger.info('  DELETE /api/rules/local/:id');
   logger.info('  POST   /api/rules/local/:id/execute');
   logger.info('  POST   /api/rules/local/:id/enable');
   logger.info('  POST   /api/rules/local/:id/disable');
+  logger.info('  POST   /api/rules/local/:id/check-conditions');
 }

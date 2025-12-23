@@ -34,6 +34,7 @@ import { EventEmitter } from 'events';
 import logger from '../utils/logger.js';
 import { initializeRulesStorage } from './storage.js';
 import { executeMatchingRules, setSmartThingsAdapter } from './executor.js';
+import { getEventAnalyzer } from './event-analyzer.js';
 import type { DeviceEvent } from '../services/device-polling-service.js';
 
 /**
@@ -174,6 +175,19 @@ export class RulesEventListener {
         value: event.value,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         previousValue: event.previousValue,
+      });
+
+      // Record event for pattern analysis
+      const analyzer = getEventAnalyzer();
+      analyzer.recordEvent({
+        deviceId: event.deviceId,
+        deviceName: event.deviceName,
+        attribute: event.attribute,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        value: event.value,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        previousValue: event.previousValue,
+        timestamp: event.timestamp,
       });
 
       // Find and execute matching rules

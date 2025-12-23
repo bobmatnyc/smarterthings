@@ -23,6 +23,13 @@ import {
   RuleTrigger,
   RuleAction,
 } from './types.js';
+import {
+  getEventAnalyzer,
+  PatternSuggestion,
+  DetectedPattern,
+  TimePattern,
+  CorrelationPattern,
+} from './event-analyzer.js';
 
 // System prompt for rule generation
 const RULE_GENERATION_PROMPT = `You are a smart home automation expert. Generate a rule in JSON format based on the user's request.
@@ -273,4 +280,161 @@ function describeAction(action: RuleAction): string {
     default:
       return 'unknown action';
   }
+}
+
+// ============================================================================
+// Pattern-Based Rule Suggestions
+// ============================================================================
+
+export interface SuggestionOptions {
+  minConfidence?: number;  // Minimum confidence threshold (0-1)
+  maxSuggestions?: number; // Maximum suggestions to return
+  includeTimePatterns?: boolean;
+  includeCorrelations?: boolean;
+}
+
+/**
+ * Get rule suggestions based on detected patterns from device events
+ *
+ * Analyzes historical device events to find patterns and generate
+ * automation suggestions. Patterns include:
+ * - Time patterns: Devices used at consistent times
+ * - Correlations: Device A triggers after device B
+ *
+ * @param options Configuration for suggestion generation
+ * @returns Array of pattern suggestions with confidence scores
+ */
+export function getPatternBasedSuggestions(
+  options: SuggestionOptions = {}
+): PatternSuggestion[] {
+  const {
+    minConfidence = 0.3,
+    maxSuggestions = 10,
+    includeTimePatterns = true,
+    includeCorrelations = true,
+  } = options;
+
+  const analyzer = getEventAnalyzer();
+  let suggestions = analyzer.generateSuggestions();
+
+  // Filter by pattern type
+  if (!includeTimePatterns) {
+    suggestions = suggestions.filter((s) => s.pattern.type !== 'recurring_time');
+  }
+  if (!includeCorrelations) {
+    suggestions = suggestions.filter((s) => s.pattern.type !== 'device_correlation');
+  }
+
+  // Filter by confidence
+  suggestions = suggestions.filter((s) => s.pattern.confidence >= minConfidence);
+
+  // Sort by confidence (highest first) and limit
+  suggestions.sort((a, b) => b.pattern.confidence - a.pattern.confidence);
+
+  return suggestions.slice(0, maxSuggestions);
+}
+
+/**
+ * Get detected patterns without generating rules
+ *
+ * Useful for displaying pattern analysis to users before suggesting rules.
+ */
+export function getDetectedPatterns(): {
+  timePatterns: TimePattern[];
+  correlations: CorrelationPattern[];
+  stats: { eventsAnalyzed: number; patternsDetected: number };
+} {
+  const analyzer = getEventAnalyzer();
+
+  return {
+    timePatterns: analyzer.detectTimePatterns(),
+    correlations: analyzer.detectCorrelations(),
+    stats: analyzer.getStats(),
+  };
+}
+
+/**
+ * Describe a detected pattern in human-readable form
+ */
+export function describePattern(pattern: DetectedPattern): string {
+  switch (pattern.type) {
+    case 'recurring_time': {
+      const timeStr = `${String(pattern.hour).padStart(2, '0')}:${String(pattern.minute).padStart(2, '0')}`;
+      const daysStr = pattern.days?.length ? pattern.days.join(', ') : 'every day';
+      return `${pattern.deviceName} is frequently set to "${String(pattern.value)}" around ${timeStr} (${daysStr}). Detected ${pattern.occurrences} times with ${Math.round(pattern.confidence * 100)}% confidence.`;
+    }
+
+    case 'device_correlation': {
+      const delay = pattern.followDevice.delaySeconds;
+      const delayStr = delay > 60
+        ? `${Math.round(delay / 60)} minutes`
+        : `${delay} seconds`;
+      return `${pattern.followDevice.deviceName} is often activated ~${delayStr} after ${pattern.leadDevice.deviceName}. Detected ${pattern.occurrences} times.`;
+    }
+
+    case 'device_sequence': {
+      const deviceNames = pattern.devices.map((d) => d.deviceName).join(' → ');
+      return `Sequence detected: ${deviceNames}. Occurred ${pattern.occurrences} times.`;
+    }
+
+    default:
+      return 'Unknown pattern';
+  }
+}
+
+/**
+ * Generate enhanced prompt with pattern context for LLM
+ *
+ * Includes detected patterns in the prompt to help LLM generate
+ * more relevant automation suggestions.
+ */
+export function generateEnhancedPrompt(
+  userPrompt: string,
+  includePatterns = true
+): string {
+  if (!includePatterns) {
+    return userPrompt;
+  }
+
+  const analyzer = getEventAnalyzer();
+  const suggestions = analyzer.generateSuggestions();
+
+  if (suggestions.length === 0) {
+    return userPrompt;
+  }
+
+  // Build pattern context
+  const patternContext = suggestions
+    .slice(0, 5) // Top 5 patterns
+    .map((s) => `- ${s.description}`)
+    .join('\n');
+
+  return `${userPrompt}
+
+Based on usage patterns detected from your devices:
+${patternContext}
+
+Consider these patterns when creating the automation.`;
+}
+
+/**
+ * Clear recorded events from analyzer
+ *
+ * Use after patterns have been processed or for testing.
+ */
+export function clearAnalyzerEvents(): void {
+  const analyzer = getEventAnalyzer();
+  analyzer.clearEvents();
+  logger.info('[RuleGenerator] Event analyzer cleared');
+}
+
+/**
+ * Get analyzer statistics
+ */
+export function getAnalyzerStats(): {
+  eventsAnalyzed: number;
+  patternsDetected: number;
+  suggestionsGenerated: number;
+} {
+  return getEventAnalyzer().getStats();
 }

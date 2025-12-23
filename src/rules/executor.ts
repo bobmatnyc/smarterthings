@@ -13,12 +13,15 @@ import {
   ActionResult,
 } from './types.js';
 import { getRulesStorage } from './storage.js';
+import { getConditionEvaluator } from './condition-evaluator.js';
 
 // We'll need to import the SmartThings adapter dynamically to avoid circular deps
 let smartThingsAdapter: any = null;
 
 export function setSmartThingsAdapter(adapter: any): void {
   smartThingsAdapter = adapter;
+  // Also set adapter on condition evaluator
+  getConditionEvaluator().setDeviceAdapter(adapter);
 }
 
 /**
@@ -36,6 +39,32 @@ export async function executeRule(
   logger.info(`[RuleExecutor] Executing rule: ${rule.name} (${rule.id})`);
 
   try {
+    // Check conditions before executing (if any)
+    if (rule.conditions && rule.conditions.length > 0) {
+      const conditionEvaluator = getConditionEvaluator();
+      const conditionResult = await conditionEvaluator.evaluateAll(rule.conditions, {
+        variables: context.variables,
+      });
+
+      if (!conditionResult.satisfied) {
+        logger.info(`[RuleExecutor] Rule conditions not met: ${conditionResult.reason}`);
+        return {
+          ruleId: rule.id,
+          ruleName: rule.name,
+          success: true,  // Not a failure, conditions just weren't met
+          startedAt: new Date(startTime).toISOString(),
+          completedAt: new Date().toISOString(),
+          durationMs: Date.now() - startTime,
+          triggeredBy: context.triggeredBy,
+          actionsExecuted: 0,
+          actionResults: [],
+          error: `Conditions not satisfied: ${conditionResult.reason}`,
+        };
+      }
+
+      logger.debug(`[RuleExecutor] All conditions satisfied, proceeding with actions`);
+    }
+
     // Execute all actions
     for (const action of rule.actions) {
       const result = await executeAction(action);

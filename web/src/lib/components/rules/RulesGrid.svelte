@@ -25,12 +25,43 @@
 	import { onMount } from 'svelte';
 	import { getRulesStore } from '$lib/stores/rulesStore.svelte';
 	import RuleCard from './RuleCard.svelte';
+	import RuleEditor from './RuleEditor.svelte';
+	import type { Rule } from '$lib/stores/rulesStore.svelte';
 
 	const rulesStore = getRulesStore();
+
+	let editorOpen = $state(false);
+	let editingRule = $state<Rule | null>(null);
 
 	onMount(async () => {
 		await rulesStore.loadRules();
 	});
+
+	/**
+	 * Open editor in create mode
+	 */
+	function handleCreateRule() {
+		editingRule = null;
+		editorOpen = true;
+	}
+
+	/**
+	 * Handle rule save (create or update)
+	 */
+	function handleSaveRule(rule: Rule) {
+		// Reload rules to get updated data
+		rulesStore.loadRules();
+		editorOpen = false;
+		editingRule = null;
+	}
+
+	/**
+	 * Close editor
+	 */
+	function handleCloseEditor() {
+		editorOpen = false;
+		editingRule = null;
+	}
 </script>
 
 <div class="rules-container">
@@ -92,7 +123,7 @@
 				Create rules to automate your smart home with IF/THEN logic. Rules trigger automatically
 				based on conditions like time, device states, or sensor events.
 			</p>
-			<button class="create-button">
+			<button class="create-button" onclick={handleCreateRule}>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					viewBox="0 0 24 24"
@@ -119,7 +150,7 @@
 					<span class="stat-item disabled">{rulesStore.stats.disabled} disabled</span>
 				</div>
 			</div>
-			<button class="create-button">
+			<button class="create-button" onclick={handleCreateRule}>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					viewBox="0 0 24 24"
@@ -142,6 +173,9 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Rule Editor Modal -->
+<RuleEditor bind:open={editorOpen} rule={editingRule} onClose={handleCloseEditor} onSave={handleSaveRule} />
 
 <style>
 	.rules-container {
