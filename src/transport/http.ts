@@ -9,6 +9,18 @@ import { MessageQueue } from '../queue/MessageQueue.js';
 import { getTokenStorage } from '../storage/token-storage.js';
 import { DashboardService } from '../services/dashboard-service.js';
 import { LlmService } from '../services/llm.js';
+import type { ServiceContainer } from '../services/ServiceContainer.js';
+
+// Module-level ServiceContainer instance (injected during initialization)
+let serviceContainer: ServiceContainer | null = null;
+
+/**
+ * Initialize HTTP transport with ServiceContainer.
+ * Must be called before starting the transport.
+ */
+export function initializeHttpTransport(container: ServiceContainer): void {
+  serviceContainer = container;
+}
 
 /**
  * HTTP transport with Server-Sent Events (SSE) for MCP server.
@@ -127,6 +139,154 @@ export async function startHttpTransport(server: Server): Promise<void> {
 
     logger.info('[Dashboard API] Routes registered: GET /api/dashboard/summary');
   }
+
+  /**
+   * GET /api/rooms - List all rooms with device counts
+   *
+   * Returns list of rooms from SmartThings with device count for each room.
+   * Response: { success: true, data: { count: number, rooms: RoomInfo[] } }
+   */
+  app.get('/api/rooms', async (_req, res) => {
+    const startTime = Date.now();
+
+    try {
+      logger.debug('[API] GET /api/rooms');
+
+      if (!serviceContainer) {
+        res.status(503).json({
+          success: false,
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'SmartThings not configured',
+          },
+        });
+        return;
+      }
+
+      const deviceService = serviceContainer.getDeviceService();
+      const locationService = serviceContainer.getLocationService();
+
+      // Get all rooms
+      const rooms = await locationService.listRooms();
+
+      // Get all devices to calculate device counts per room
+      const devices = await deviceService.listDevices();
+
+      // Calculate device count for each room
+      const roomDeviceCounts = new Map<string, number>();
+      devices.forEach((device) => {
+        const roomName = device.roomName;
+        if (roomName) {
+          roomDeviceCounts.set(roomName, (roomDeviceCounts.get(roomName) || 0) + 1);
+        }
+      });
+
+      // Add device counts to rooms
+      const roomsWithCounts = rooms.map((room) => ({
+        roomId: room.roomId,
+        name: room.name,
+        locationId: room.locationId,
+        deviceCount: roomDeviceCounts.get(room.name) || 0,
+      }));
+
+      const duration = Date.now() - startTime;
+      logger.debug('[API] Rooms fetched', { count: roomsWithCounts.length, duration });
+
+      res.json({
+        success: true,
+        data: {
+          count: roomsWithCounts.length,
+          rooms: roomsWithCounts,
+        },
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error('[API] GET /api/rooms failed', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
+
+  /**
+   * GET /api/devices - List all devices with optional room filter
+   *
+   * Query Parameters:
+   * - room: Filter by room name (optional)
+   *
+   * Response: { success: true, data: { count: number, devices: DeviceInfo[] } }
+   */
+  app.get('/api/devices', async (req, res) => {
+    const startTime = Date.now();
+    const { room } = req.query as { room?: string };
+
+    try {
+      logger.debug('[API] GET /api/devices', { room });
+
+      if (!serviceContainer) {
+        res.status(503).json({
+          success: false,
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'SmartThings not configured',
+          },
+        });
+        return;
+      }
+
+      const deviceService = serviceContainer.getDeviceService();
+      const locationService = serviceContainer.getLocationService();
+
+      let roomId: string | undefined;
+
+      // If room filter is specified, find the room
+      if (room) {
+        const roomInfo = await locationService.findRoomByName(room);
+        roomId = roomInfo.roomId;
+      }
+
+      // Get devices (with optional room filter)
+      // Cast roomId to RoomId type (branded string type)
+      const devices = await deviceService.listDevices(roomId as import('../types/smartthings.js').RoomId | undefined);
+
+      const duration = Date.now() - startTime;
+      logger.debug('[API] Devices fetched', {
+        success: true,
+        count: devices.length,
+        duration,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          count: devices.length,
+          devices,
+        },
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error('[API] GET /api/devices failed', {
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
 
   // SSE device events endpoint
   const sseClients = new Set<express.Response>();

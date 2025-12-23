@@ -7,9 +7,9 @@
  */
 
 import { environment } from './config/environment.js';
-import { createMcpServer } from './server.js';
+import { createMcpServer, getServiceContainer } from './server.js';
 import { startStdioTransport } from './transport/stdio.js';
-import { startHttpTransport } from './transport/http.js';
+import { startHttpTransport, initializeHttpTransport } from './transport/http.js';
 import logger from './utils/logger.js';
 
 /**
@@ -29,13 +29,16 @@ async function main(): Promise<void> {
       nodeEnv: environment.NODE_ENV,
     });
 
-    // Create MCP server
+    // Create MCP server (initializes ServiceContainer)
     const server = createMcpServer();
 
     // Start appropriate transport
     if (environment.TRANSPORT_MODE === 'stdio') {
       await startStdioTransport(server);
     } else if (environment.TRANSPORT_MODE === 'http') {
+      // Initialize HTTP transport with ServiceContainer
+      const serviceContainer = getServiceContainer();
+      initializeHttpTransport(serviceContainer);
       await startHttpTransport(server);
     } else {
       throw new Error(`Unknown transport mode: ${environment.TRANSPORT_MODE as string}`);

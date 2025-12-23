@@ -40,6 +40,20 @@ import logger from './utils/logger.js';
  * Extensibility: New tools/resources added by importing, initializing, and registering here.
  */
 
+// Export ServiceContainer for use by transports
+let serviceContainer: ServiceContainer;
+
+/**
+ * Get the ServiceContainer instance.
+ * @returns ServiceContainer instance
+ */
+export function getServiceContainer(): ServiceContainer {
+  if (!serviceContainer) {
+    throw new Error('ServiceContainer not initialized. Call createMcpServer() first.');
+  }
+  return serviceContainer;
+}
+
 /**
  * Creates and configures the MCP server.
  *
@@ -58,7 +72,7 @@ export function createMcpServer(): Server {
   });
 
   // Initialize ServiceContainer with SmartThingsService dependency
-  const serviceContainer = new ServiceContainer(smartThingsService);
+  serviceContainer = new ServiceContainer(smartThingsService);
 
   // Initialize all tool modules with ServiceContainer
   // This injects the service dependencies into each tool module
