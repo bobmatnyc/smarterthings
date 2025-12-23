@@ -37,6 +37,16 @@ export interface SummaryResult {
 }
 
 /**
+ * Alert result from event analysis
+ */
+export interface AlertResult {
+  alert: boolean;
+  priority: 'info' | 'warning' | 'critical';
+  message: string;
+  category: 'security' | 'energy' | 'system' | 'activity';
+}
+
+/**
  * Cache entry
  */
 interface CacheEntry {
@@ -71,11 +81,7 @@ export class DashboardService {
   private eventLimit: number;
   private model: string;
 
-  constructor(
-    llmService: LlmService,
-    eventStore: EventStore,
-    config?: DashboardServiceConfig
-  ) {
+  constructor(llmService: LlmService, eventStore: EventStore, config?: DashboardServiceConfig) {
     this.llmService = llmService;
     this.eventStore = eventStore;
     this.cacheSeconds = config?.cacheSeconds ?? 30;
@@ -185,15 +191,25 @@ export class DashboardService {
    * @param events - Recent events to summarize
    * @returns Natural language summary (max 150 chars for scrolling)
    */
-  private async callLlmForSummary(events: any[]): Promise<string> {
+  private async callLlmForSummary(
+    events: Array<{
+      type: string;
+      source: string;
+      deviceName?: string;
+      deviceId?: string;
+      eventType?: string;
+      value?: unknown;
+      timestamp: Date | string;
+    }>
+  ): Promise<string> {
     // Format events for LLM context
     const eventsJson = events.map((e) => ({
       type: e.type,
       source: e.source,
-      device: e.deviceName || e.deviceId,
-      eventType: e.eventType,
+      device: e.deviceName ?? e.deviceId ?? 'unknown',
+      eventType: e.eventType ?? 'unknown',
       value: e.value,
-      timestamp: e.timestamp.toISOString(),
+      timestamp: typeof e.timestamp === 'string' ? e.timestamp : e.timestamp.toISOString(),
     }));
 
     const currentTime = new Date().toISOString();
@@ -244,7 +260,13 @@ Respond with a brief, natural summary (max 150 characters for scrolling display)
    * @param events - Recent events
    * @returns Array of highlight strings (max 3)
    */
-  private extractHighlights(events: any[]): string[] {
+  private extractHighlights(
+    events: Array<{
+      type: string;
+      deviceName?: string;
+      value?: unknown;
+    }>
+  ): string[] {
     const highlights: string[] = [];
 
     // Find up to 3 notable events
@@ -268,6 +290,147 @@ Respond with a brief, natural summary (max 150 characters for scrolling display)
     }
 
     return highlights;
+  }
+
+  /**
+   * Analyze events for alerts using LLM
+   *
+   * @param events - Events to analyze (typically buffered from SSE)
+   * @returns Array of alerts (empty if none detected)
+   *
+   * Design Decision: LLM-powered alert detection
+   * Rationale: LLM can understand context and patterns that rule-based
+   * systems miss. Batching reduces API costs.
+   *
+   * Performance:
+   * - Batched calls: Max 6/minute (rate limiting)
+   * - LLM latency: 1-2s (Haiku for speed)
+   * - Alert cache: None (real-time detection)
+   *
+   * Error Handling:
+   * - LLM errors: Returns empty array (silent failure)
+   * - Invalid JSON: Returns empty array
+   * - No events: Returns empty array immediately
+   */
+  async analyzeEvents(
+    events: Array<{
+      type: string;
+      source: string;
+      deviceName?: string;
+      deviceId?: string;
+      eventType?: string;
+      value?: unknown;
+      timestamp: Date | string;
+    }>
+  ): Promise<AlertResult[]> {
+    const startTime = Date.now();
+
+    try {
+      // Skip if no events
+      if (events.length === 0) {
+        return [];
+      }
+
+      logger.debug('[DashboardService] Analyzing events for alerts', {
+        eventCount: events.length,
+      });
+
+      // Format events for LLM context
+      const eventsJson = events.map((e) => ({
+        type: e.type,
+        source: e.source,
+        device: e.deviceName ?? e.deviceId ?? 'unknown',
+        eventType: e.eventType ?? 'unknown',
+        value: e.value,
+        timestamp: typeof e.timestamp === 'string' ? e.timestamp : e.timestamp.toISOString(),
+      }));
+
+      const currentTime = new Date().toISOString();
+
+      // Build LLM prompt
+      const prompt = `Analyze these smart home events for alert-worthy conditions.
+
+Alert Categories:
+- SECURITY: Unexpected motion/contact after hours, locks, garage doors
+- ENERGY: Lights left on >30min, unusual HVAC, high consumption
+- SYSTEM: Low battery (<10%), device offline, connectivity issues
+- ACTIVITY: Unusual patterns, sequential room movement
+
+Current time: ${currentTime}
+
+Events (most recent first):
+${JSON.stringify(eventsJson, null, 2)}
+
+Return JSON array of alerts (empty if none):
+[{"priority": "info|warning|critical", "message": "brief description", "category": "security|energy|system|activity"}]
+
+Only alert on genuinely noteworthy events. Be selective.`;
+
+      const messages = [
+        {
+          role: 'user' as const,
+          content: prompt,
+        },
+      ];
+
+      // Call LLM
+      const response = await this.llmService.chat(messages, [], {
+        enableWebSearch: false,
+      });
+
+      const responseText = response.content?.trim() || '[]';
+
+      // Parse JSON response
+      let alerts: AlertResult[] = [];
+      try {
+        // Extract JSON array from response (handle markdown code blocks)
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          const parsedAlerts = JSON.parse(jsonMatch[0]) as Array<{
+            priority?: string;
+            message?: string;
+            category?: string;
+          }>;
+
+          // Validate and transform alerts
+          alerts = parsedAlerts
+            .filter(
+              (a): a is { priority: string; message: string; category: string } =>
+                typeof a.priority === 'string' &&
+                typeof a.message === 'string' &&
+                typeof a.category === 'string'
+            )
+            .map((a) => ({
+              alert: true,
+              priority: a.priority as 'info' | 'warning' | 'critical',
+              message: a.message,
+              category: a.category as 'security' | 'energy' | 'system' | 'activity',
+            }));
+        }
+      } catch (parseError) {
+        logger.warn('[DashboardService] Failed to parse alert JSON', {
+          responseText,
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+        });
+        return [];
+      }
+
+      const duration = Date.now() - startTime;
+      logger.info('[DashboardService] Alerts analyzed', {
+        eventCount: events.length,
+        alertCount: alerts.length,
+        duration,
+      });
+
+      return alerts;
+    } catch (error) {
+      logger.error('[DashboardService] Failed to analyze events for alerts', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Silent failure - return empty array
+      return [];
+    }
   }
 
   /**

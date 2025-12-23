@@ -21,22 +21,150 @@
 	import { getRoomStore } from '$lib/stores/roomStore.svelte';
 	import { getDeviceStore } from '$lib/stores/deviceStore.svelte';
 	import { getDashboardStore } from '$lib/stores/dashboardStore.svelte';
+	import { getEventsStore } from '$lib/stores/eventsStore.svelte';
+	import { getAlertStore } from '$lib/stores/alertStore.svelte';
 	import MondrianGrid from '$lib/components/dashboard/MondrianGrid.svelte';
 	import LoadingSpinner from '$lib/components/loading/LoadingSpinner.svelte';
 	import StatusCrawler from '$lib/components/dashboard/StatusCrawler.svelte';
+	import AlertOverlay from '$lib/components/dashboard/AlertOverlay.svelte';
 
 	const roomStore = getRoomStore();
 	const deviceStore = getDeviceStore();
 	const dashboardStore = getDashboardStore();
+	const eventsStore = getEventsStore();
+	const alertStore = getAlertStore();
 
 	let showConfig = $state(false);
 
-	onMount(async () => {
+	/**
+	 * Event buffer for batched alert analysis
+	 * Design Decision: 5-second buffer window
+	 * Rationale: Balance between real-time alerts and API cost.
+	 * Buffering reduces LLM calls while maintaining responsiveness.
+	 */
+	let eventBuffer: any[] = [];
+	let bufferTimeout: NodeJS.Timeout | null = null;
+	const BUFFER_WINDOW_MS = 5000; // 5 seconds
+
+	/**
+	 * Rate limiting for alert analysis
+	 * Design Decision: Max 6 calls per minute
+	 * Rationale: Prevents API abuse while allowing responsive alerts.
+	 */
+	let lastAnalysisTime = 0;
+	const MIN_ANALYSIS_INTERVAL_MS = 10000; // 10 seconds between calls
+
+	/**
+	 * Analyze buffered events for alerts
+	 */
+	async function analyzeBufferedEvents() {
+		if (eventBuffer.length === 0) return;
+
+		// Check rate limiting
+		const now = Date.now();
+		if (now - lastAnalysisTime < MIN_ANALYSIS_INTERVAL_MS) {
+			console.log('[Dashboard] Skipping analysis due to rate limiting');
+			return;
+		}
+
+		// Get events to analyze (copy and clear buffer)
+		const eventsToAnalyze = [...eventBuffer];
+		eventBuffer = [];
+
+		console.log(`[Dashboard] Analyzing ${eventsToAnalyze.length} buffered events for alerts`);
+
+		try {
+			// Call backend API for alert analysis
+			const response = await fetch('http://localhost:5182/api/dashboard/analyze-event', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					events: eventsToAnalyze
+				})
+			});
+
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+			}
+
+			const result = await response.json();
+
+			if (result.success && result.data.alerts.length > 0) {
+				console.log(`[Dashboard] ${result.data.alerts.length} alerts detected`);
+
+				// Add alerts to store
+				result.data.alerts.forEach((alert: any) => {
+					alertStore.addAlert({
+						priority: alert.priority,
+						message: alert.message,
+						category: alert.category
+					});
+				});
+			}
+
+			lastAnalysisTime = now;
+		} catch (error) {
+			console.error('[Dashboard] Failed to analyze events:', error);
+		}
+	}
+
+	/**
+	 * Buffer event for analysis
+	 */
+	function bufferEvent(event: any) {
+		eventBuffer.push(event);
+
+		// Clear existing timeout
+		if (bufferTimeout) {
+			clearTimeout(bufferTimeout);
+		}
+
+		// Set new timeout to analyze after buffer window
+		bufferTimeout = setTimeout(() => {
+			analyzeBufferedEvents();
+			bufferTimeout = null;
+		}, BUFFER_WINDOW_MS);
+	}
+
+	onMount(() => {
 		// Load rooms and devices
-		await Promise.all([
+		Promise.all([
 			roomStore.loadRooms(),
 			deviceStore.loadDevices()
-		]);
+		]).catch(error => {
+			console.error('[Dashboard] Failed to load data:', error);
+		});
+
+		// Connect to SSE stream for alert analysis (if alerts enabled)
+		if (dashboardStore.showAlerts) {
+			eventsStore.connectSSE();
+
+			// Watch for new events from SSE
+			let previousEventCount = eventsStore.events.length;
+
+			// Subscribe to event changes
+			$effect(() => {
+				const currentEventCount = eventsStore.events.length;
+
+				// If new events arrived
+				if (currentEventCount > previousEventCount) {
+					const newEvents = eventsStore.events.slice(0, currentEventCount - previousEventCount);
+					newEvents.forEach((event) => bufferEvent(event));
+				}
+
+				previousEventCount = currentEventCount;
+			});
+		}
+
+		// Cleanup on unmount
+		return () => {
+			if (bufferTimeout) {
+				clearTimeout(bufferTimeout);
+			}
+			eventsStore.disconnectSSE();
+		};
 	});
 
 	function toggleConfig() {
@@ -57,6 +185,11 @@
 	<!-- Status Crawler with LLM Summary -->
 	{#if dashboardStore.showStatusCrawler}
 		<StatusCrawler />
+	{/if}
+
+	<!-- Alert Overlay (if alerts enabled) -->
+	{#if dashboardStore.showAlerts}
+		<AlertOverlay />
 	{/if}
 
 	<!-- Main Content -->
