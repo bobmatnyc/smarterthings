@@ -5,6 +5,7 @@ import { browser } from '$app/environment';
 
 export class ApiClient {
 	private baseUrl = '/api';
+	private isRedirecting = false; // Prevent multiple redirects
 
 	/**
 	 * Internal fetch wrapper with 401 handling
@@ -64,17 +65,27 @@ export class ApiClient {
 	 * Uses a special error class to signal session expiry
 	 */
 	private async handleAuthError(): Promise<never> {
-		console.warn('[ApiClient] 401 Unauthorized - redirecting to auth');
-
 		// Only redirect in browser context (not during SSR)
 		if (browser) {
-			// Check if we're already on auth page to prevent redirect loop
+			// Check if we're already redirecting or on auth page
 			const currentPath = window.location.pathname;
-			if (!currentPath.startsWith('/auth')) {
+			const currentUrl = window.location.href;
+
+			// Skip redirect if:
+			// 1. Already redirecting
+			// 2. Already on auth page
+			// 3. URL contains auth (handles /auth, /auth/callback, etc.)
+			if (this.isRedirecting ||
+				currentPath.startsWith('/auth') ||
+				currentUrl.includes('/auth')) {
+				console.log('[ApiClient] Skipping redirect - already on auth page or redirecting');
+			} else {
+				console.warn('[ApiClient] 401 Unauthorized - redirecting to auth');
+				this.isRedirecting = true;
 				// Use replace to prevent back button issues
-				window.location.href = '/auth?reason=session_expired';
-				// Wait a bit for navigation to start
-				await new Promise(resolve => setTimeout(resolve, 100));
+				window.location.replace('/auth?reason=session_expired');
+				// Wait for navigation
+				await new Promise(resolve => setTimeout(resolve, 500));
 			}
 		}
 
