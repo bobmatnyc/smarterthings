@@ -22,15 +22,33 @@ export class ApiClient {
 		const response = await fetch(url, options);
 
 		// Check for 401 Unauthorized (session expired)
-		// Also check response body for HTML 401 from ngrok/proxy
 		if (response.status === 401) {
 			await this.handleAuthError();
 		}
 
-		// Check for HTML 401 in response body (ngrok/openresty returns this)
+		// Check for 401 in JSON response body (backend wraps SmartThings 401 as error)
 		const contentType = response.headers.get('content-type');
-		if (contentType?.includes('text/html') && response.ok === false) {
+		if (contentType?.includes('application/json')) {
 			// Clone response to read body without consuming it
+			const clonedResponse = response.clone();
+			try {
+				const json = await clonedResponse.json();
+				// Check for 401 in error message (backend returns this from SmartThings API)
+				if (json.success === false && json.error?.message) {
+					const errorMsg = json.error.message;
+					if (errorMsg.includes('401') ||
+						errorMsg.includes('Authorization Required') ||
+						errorMsg.includes('Unauthorized')) {
+						await this.handleAuthError();
+					}
+				}
+			} catch {
+				// JSON parse failed, ignore
+			}
+		}
+
+		// Check for HTML 401 in response body (ngrok/openresty returns this)
+		if (contentType?.includes('text/html') && response.ok === false) {
 			const clonedResponse = response.clone();
 			const text = await clonedResponse.text();
 			if (text.includes('401 Authorization Required') || text.includes('Authorization Required')) {
