@@ -130,6 +130,10 @@ export async function loadRooms(forceRefresh: boolean = false): Promise<void> {
 			error = result.error?.message ?? 'Failed to load rooms';
 		}
 	} catch (err) {
+		// Don't display session expired errors - redirect handles it
+		if (err instanceof Error && (err as any).isSessionExpired) {
+			return; // Silent - redirect is happening
+		}
 		error = err instanceof Error ? err.message : 'Failed to load rooms';
 	} finally {
 		loading = false;

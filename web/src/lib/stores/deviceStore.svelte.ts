@@ -252,6 +252,10 @@ export async function loadDevices(forceRefresh: boolean = false): Promise<void> 
 			error = result.error.message;
 		}
 	} catch (err) {
+		// Don't display session expired errors - redirect handles it
+		if (err instanceof Error && (err as any).isSessionExpired) {
+			return; // Silent - redirect is happening
+		}
 		error = err instanceof Error ? err.message : 'Failed to load devices';
 	} finally {
 		loading = false;

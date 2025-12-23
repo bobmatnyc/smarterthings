@@ -22,24 +22,48 @@ export class ApiClient {
 		const response = await fetch(url, options);
 
 		// Check for 401 Unauthorized (session expired)
+		// Also check response body for HTML 401 from ngrok/proxy
 		if (response.status === 401) {
-			console.warn('[ApiClient] 401 Unauthorized - redirecting to auth');
+			await this.handleAuthError();
+		}
 
-			// Only redirect in browser context (not during SSR)
-			if (browser) {
-				// Check if we're already on auth page to prevent redirect loop
-				const currentPath = window.location.pathname;
-				if (!currentPath.startsWith('/auth')) {
-					// Redirect to auth with session expired message
-					await goto('/auth?reason=session_expired');
-				}
+		// Check for HTML 401 in response body (ngrok/openresty returns this)
+		const contentType = response.headers.get('content-type');
+		if (contentType?.includes('text/html') && response.ok === false) {
+			// Clone response to read body without consuming it
+			const clonedResponse = response.clone();
+			const text = await clonedResponse.text();
+			if (text.includes('401 Authorization Required') || text.includes('Authorization Required')) {
+				await this.handleAuthError();
 			}
-
-			// Throw error after redirect to prevent further processing
-			throw new Error('Session expired - please re-authenticate');
 		}
 
 		return response;
+	}
+
+	/**
+	 * Handle authentication error by redirecting to auth page
+	 * Uses a special error class to signal session expiry
+	 */
+	private async handleAuthError(): Promise<never> {
+		console.warn('[ApiClient] 401 Unauthorized - redirecting to auth');
+
+		// Only redirect in browser context (not during SSR)
+		if (browser) {
+			// Check if we're already on auth page to prevent redirect loop
+			const currentPath = window.location.pathname;
+			if (!currentPath.startsWith('/auth')) {
+				// Use replace to prevent back button issues
+				window.location.href = '/auth?reason=session_expired';
+				// Wait a bit for navigation to start
+				await new Promise(resolve => setTimeout(resolve, 100));
+			}
+		}
+
+		// Throw special error that stores should not display
+		const error = new Error('SESSION_EXPIRED');
+		(error as any).isSessionExpired = true;
+		throw error;
 	}
 
 	/**
