@@ -1,8 +1,73 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	/**
+	 * Events Page - Real-time smart home event monitoring
+	 *
+	 * Design: Svelte 5 Runes with SSE integration
+	 * Features:
+	 * - Real-time event streaming via Server-Sent Events (SSE)
+	 * - Two view modes: Timeline (streaming list) and Grid (unique devices)
+	 * - Event filtering by type and source
+	 * - Auto-scroll toggle for new events
+	 * - Connection status indicator
+	 *
+	 * View Modes:
+	 * - Timeline: Chronological list of all events (default)
+	 * - Grid: Most recent event per device, sorted by recency
+	 *
+	 * Performance:
+	 * - SSE latency: < 100ms (server → client)
+	 * - Automatic reconnection with exponential backoff
+	 * - Event list capped at 500 for performance
+	 */
 	import { getEventsStore } from '$lib/stores/eventsStore.svelte';
+	import type { SmartHomeEvent } from '$lib/stores/eventsStore.svelte';
+	import EventGridCard from '$lib/components/events/EventGridCard.svelte';
 
 	const store = getEventsStore();
+
+	// View mode state: 'timeline' or 'grid'
+	let viewMode = $state<'timeline' | 'grid'>('timeline');
+
+	// Svelte 5 Runes: Load events and connect SSE on mount, cleanup on unmount
+	$effect(() => {
+		store.loadEvents(100);
+		store.connectSSE();
+
+		// Cleanup function runs on component unmount
+		return () => {
+			store.disconnectSSE();
+		};
+	});
+
+	/**
+	 * Grid View: Unique devices with most recent event
+	 *
+	 * Design Decision: Device-centric view
+	 * Rationale: Shows which devices have been active recently at a glance.
+	 * Groups events by device and keeps only the most recent per device.
+	 *
+	 * Algorithm:
+	 * 1. Sort all events by timestamp (most recent first)
+	 * 2. Keep only first occurrence of each deviceId
+	 * 3. Result: Array of most recent events per device, sorted by recency
+	 */
+	const uniqueDeviceEvents = $derived.by(() => {
+		const deviceMap = new Map<string, SmartHomeEvent>();
+
+		// Sort by timestamp descending first (most recent first)
+		const sorted = [...store.filteredEvents].sort(
+			(a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+		);
+
+		// Keep only most recent event per device
+		for (const event of sorted) {
+			if (event.deviceId && !deviceMap.has(event.deviceId)) {
+				deviceMap.set(event.deviceId, event);
+			}
+		}
+
+		return Array.from(deviceMap.values());
+	});
 
 	// Format timestamp as relative time
 	function formatTimestamp(timestamp: string): string {
@@ -41,17 +106,6 @@
 		};
 		return colors[source] || 'badge variant-filled-surface';
 	}
-
-	// Load events and connect SSE on mount
-	onMount(() => {
-		store.loadEvents(100);
-		store.connectSSE();
-	});
-
-	// Disconnect SSE on unmount
-	onDestroy(() => {
-		store.disconnectSSE();
-	});
 </script>
 
 <div class="container mx-auto p-4 max-w-7xl">
@@ -63,7 +117,7 @@
 
 	<!-- Status Bar -->
 	<div class="card p-4 mb-4">
-		<div class="flex items-center justify-between">
+		<div class="flex items-center justify-between flex-wrap gap-4">
 			<div class="flex items-center gap-4">
 				<!-- Connection Status -->
 				<div class="flex items-center gap-2">
@@ -79,18 +133,44 @@
 
 				<!-- Stats -->
 				<div class="text-sm text-surface-600-300-token">
-					{store.stats.filtered} / {store.stats.total} events
+					{#if viewMode === 'grid'}
+						{uniqueDeviceEvents.length} unique devices
+					{:else}
+						{store.stats.filtered} / {store.stats.total} events
+					{/if}
 				</div>
 			</div>
 
-			<!-- Actions -->
+			<!-- View Toggle and Actions -->
 			<div class="flex items-center gap-2">
-				<button
-					class="btn btn-sm variant-ghost-surface"
-					on:click={() => store.setAutoScroll(!store.autoScroll)}
-				>
-					{store.autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
-				</button>
+				<!-- View Mode Toggle -->
+				<div class="btn-group variant-ghost">
+					<button
+						class="btn btn-sm {viewMode === 'timeline' ? 'variant-filled-primary' : 'variant-ghost'}"
+						on:click={() => (viewMode = 'timeline')}
+						title="Timeline view - Chronological list of all events"
+					>
+						Timeline
+					</button>
+					<button
+						class="btn btn-sm {viewMode === 'grid' ? 'variant-filled-primary' : 'variant-ghost'}"
+						on:click={() => (viewMode = 'grid')}
+						title="Grid view - Most recent event per device"
+					>
+						Grid
+					</button>
+				</div>
+
+				<!-- Auto-scroll (Timeline only) -->
+				{#if viewMode === 'timeline'}
+					<button
+						class="btn btn-sm variant-ghost-surface"
+						on:click={() => store.setAutoScroll(!store.autoScroll)}
+					>
+						{store.autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
+					</button>
+				{/if}
+
 				<button class="btn btn-sm variant-ghost-primary" on:click={() => store.loadEvents(100)}>
 					Refresh
 				</button>
@@ -150,49 +230,64 @@
 		</div>
 	{/if}
 
-	<!-- Events List -->
-	{#if !store.loading && store.filteredEvents.length > 0}
-		<div class="space-y-2">
-			{#each store.filteredEvents as event (event.id)}
-				<div class="card p-4 hover:variant-soft-surface transition-colors">
-					<div class="flex items-start justify-between gap-4">
-						<!-- Event Info -->
-						<div class="flex-1 min-w-0">
-							<div class="flex items-center gap-2 mb-2">
-								<span class={getTypeBadgeColor(event.type)}>{event.type}</span>
-								<span class={getSourceBadgeColor(event.source)}>{event.source}</span>
-								{#if event.eventType}
-									<span class="text-sm text-surface-600-300-token">{event.eventType}</span>
+	<!-- Timeline View: Chronological list of all events -->
+	{#if viewMode === 'timeline'}
+		{#if !store.loading && store.filteredEvents.length > 0}
+			<div class="space-y-2">
+				{#each store.filteredEvents as event (event.id)}
+					<div class="card p-4 hover:variant-soft-surface transition-colors">
+						<div class="flex items-start justify-between gap-4">
+							<!-- Event Info -->
+							<div class="flex-1 min-w-0">
+								<div class="flex items-center gap-2 mb-2">
+									<span class={getTypeBadgeColor(event.type)}>{event.type}</span>
+									<span class={getSourceBadgeColor(event.source)}>{event.source}</span>
+									{#if event.eventType}
+										<span class="text-sm text-surface-600-300-token">{event.eventType}</span>
+									{/if}
+								</div>
+
+								{#if event.deviceName}
+									<p class="font-semibold mb-1">{event.deviceName}</p>
+								{/if}
+
+								{#if event.value}
+									<p class="text-sm text-surface-600-300-token">
+										Value: {typeof event.value === 'object'
+											? JSON.stringify(event.value)
+											: String(event.value)}
+									</p>
 								{/if}
 							</div>
 
-							{#if event.deviceName}
-								<p class="font-semibold mb-1">{event.deviceName}</p>
-							{/if}
-
-							{#if event.value}
-								<p class="text-sm text-surface-600-300-token">
-									Value: {typeof event.value === 'object'
-										? JSON.stringify(event.value)
-										: String(event.value)}
-								</p>
-							{/if}
-						</div>
-
-						<!-- Timestamp -->
-						<div class="text-sm text-surface-600-300-token whitespace-nowrap">
-							{formatTimestamp(event.timestamp)}
+							<!-- Timestamp -->
+							<div class="text-sm text-surface-600-300-token whitespace-nowrap">
+								{formatTimestamp(event.timestamp)}
+							</div>
 						</div>
 					</div>
-				</div>
-			{/each}
-		</div>
+				{/each}
+			</div>
+		{/if}
+	{/if}
+
+	<!-- Grid View: Most recent event per device -->
+	{#if viewMode === 'grid'}
+		{#if !store.loading && uniqueDeviceEvents.length > 0}
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+				{#each uniqueDeviceEvents as event (event.id)}
+					<EventGridCard {event} />
+				{/each}
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Empty State -->
-	{#if !store.loading && store.filteredEvents.length === 0}
+	{#if !store.loading && (viewMode === 'timeline' ? store.filteredEvents.length === 0 : uniqueDeviceEvents.length === 0)}
 		<div class="card p-8 text-center">
-			<p class="text-surface-600-300-token">No events found</p>
+			<p class="text-surface-600-300-token">
+				{viewMode === 'grid' ? 'No device events found' : 'No events found'}
+			</p>
 			<p class="text-sm text-surface-600-300-token mt-2">
 				{#if store.filters.type || store.filters.source}
 					Try adjusting your filters
