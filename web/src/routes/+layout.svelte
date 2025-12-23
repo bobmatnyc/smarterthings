@@ -138,8 +138,16 @@
 		<LoadingSpinner size="48px" label="Checking authentication" />
 		<p class="auth-loading-text">Connecting to Smarter Things...</p>
 	</div>
-{:else if isAuthenticated || $page.url.pathname.startsWith('/auth')}
-	<!-- Authenticated OR on auth page: Show normal app -->
+{:else if $page.url.pathname.startsWith('/auth')}
+	<!-- Auth page: Minimal layout WITHOUT app shell components -->
+	<!-- CRITICAL: Do NOT render ChatSidebar, Header, SubNav here - they make API calls that trigger 401 -->
+	<div class="auth-layout">
+		<main class="auth-main">
+			{@render children()}
+		</main>
+	</div>
+{:else if isAuthenticated}
+	<!-- Authenticated: Show full app shell -->
 
 	<!-- Chat Sidebar (Fixed Left) -->
 	<ChatSidebar />
@@ -223,6 +231,28 @@
 		font-size: 1rem;
 		color: rgb(107, 114, 128);
 		margin: 0;
+	}
+
+	/**
+	 * Auth Layout
+	 *
+	 * Minimal layout for auth pages - NO app shell components.
+	 * This prevents 401 errors from ChatSidebar/Header/SubNav API calls.
+	 */
+	.auth-layout {
+		min-height: 100vh;
+		display: flex;
+		flex-direction: column;
+		background: rgb(249, 250, 251);
+	}
+
+	.auth-main {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem;
 	}
 
 	.app-shell {
