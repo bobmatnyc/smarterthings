@@ -5,7 +5,11 @@
 
 set -e
 
-export LINEAR_API_KEY="REDACTED_LINEAR_API_KEY"
+# LINEAR_API_KEY should be set in environment
+if [ -z "$LINEAR_API_KEY" ]; then
+  echo "Error: LINEAR_API_KEY environment variable is not set"
+  exit 1
+fi
 
 echo "=================================="
 echo "Linear Ticket Cleanup - Phase 1"

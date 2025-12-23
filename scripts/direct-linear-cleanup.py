@@ -8,8 +8,14 @@ import os
 import requests
 import json
 import time
+import sys
 
-LINEAR_API_KEY = "REDACTED_LINEAR_API_KEY"
+# LINEAR_API_KEY should be set in environment
+LINEAR_API_KEY = os.environ.get("LINEAR_API_KEY")
+if not LINEAR_API_KEY:
+    print("Error: LINEAR_API_KEY environment variable is not set", file=sys.stderr)
+    sys.exit(1)
+
 LINEAR_API_URL = "https://api.linear.app/graphql"
 
 headers = {
