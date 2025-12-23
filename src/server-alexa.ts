@@ -84,6 +84,8 @@ import { registerLocalRulesRoutes } from './routes/rules-local.js';
 import { randomUUID } from 'crypto';
 import type { EventId, SmartHomeEventType, EventSource } from './queue/MessageQueue.js';
 import { getRulesEventListener } from './rules/event-listener.js';
+import { registerDashboardRoutes } from './routes/dashboard.js';
+import { DashboardService } from './services/dashboard-service.js';
 
 /**
  * Server port (configurable via environment)
@@ -173,6 +175,11 @@ let devicePollingService: DevicePollingService | null = null;
  * Singleton RulesEventListener instance for automatic rule triggering
  */
 let rulesEventListener: ReturnType<typeof getRulesEventListener> | null = null;
+
+/**
+ * Singleton DashboardService instance for LLM-powered status summaries
+ */
+let dashboardService: DashboardService | null = null;
 
 /**
  * Get or create ChatOrchestrator instance.
@@ -289,6 +296,35 @@ async function getRulesEventListenerInstance(): Promise<typeof rulesEventListene
     logger.info('[RulesEventListener] Initialized');
   }
   return rulesEventListener;
+}
+
+/**
+ * Get or create DashboardService instance.
+ *
+ * Requires LlmService and EventStore to be initialized.
+ *
+ * @returns DashboardService instance
+ */
+async function getDashboardService(): Promise<DashboardService> {
+  if (!dashboardService) {
+    // Validate environment variables
+    const apiKey = process.env['OPENROUTER_API_KEY'];
+    if (!apiKey) {
+      throw new Error('OPENROUTER_API_KEY environment variable is required for dashboard summaries');
+    }
+
+    // Create LLM service for dashboard
+    const llmService = new LlmService({
+      apiKey,
+      model: 'anthropic/claude-3-haiku-20240307', // Use Haiku for cost-effective summaries
+    });
+
+    const store = getEventStore();
+    dashboardService = new DashboardService(llmService, store);
+    logger.info('[DashboardService] Initialized');
+  }
+
+  return dashboardService;
 }
 
 /**
@@ -1809,6 +1845,20 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
       error: error instanceof Error ? error.message : String(error),
     });
     // Don't fail server startup - local rules are optional
+  }
+
+  // ====================================================================
+  // Dashboard Routes (for LLM-powered status summaries)
+  // ====================================================================
+  try {
+    const dashboardSvc = await getDashboardService();
+    await registerDashboardRoutes(server, dashboardSvc);
+    logger.info('Dashboard routes registered successfully');
+  } catch (error) {
+    logger.error('Failed to register dashboard routes', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // Don't fail server startup - dashboard is optional
   }
 
   logger.info('API Routes registered:');

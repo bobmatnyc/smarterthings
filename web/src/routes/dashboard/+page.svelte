@@ -23,6 +23,7 @@
 	import { getDashboardStore } from '$lib/stores/dashboardStore.svelte';
 	import MondrianGrid from '$lib/components/dashboard/MondrianGrid.svelte';
 	import LoadingSpinner from '$lib/components/loading/LoadingSpinner.svelte';
+	import StatusCrawler from '$lib/components/dashboard/StatusCrawler.svelte';
 
 	const roomStore = getRoomStore();
 	const deviceStore = getDeviceStore();
@@ -53,33 +54,9 @@
 </svelte:head>
 
 <div class="dashboard-container">
-	<!-- Status Crawler Placeholder -->
+	<!-- Status Crawler with LLM Summary -->
 	{#if dashboardStore.showStatusCrawler}
-		<div class="status-crawler">
-			<div class="crawler-content">
-				<span class="crawler-item">
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="crawler-icon">
-						<circle cx="12" cy="12" r="10"></circle>
-						<polyline points="12 6 12 12 16 14"></polyline>
-					</svg>
-					{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-				</span>
-				<span class="crawler-divider">•</span>
-				<span class="crawler-item">
-					{deviceStore.stats.total} Devices
-				</span>
-				<span class="crawler-divider">•</span>
-				<span class="crawler-item">
-					{deviceStore.stats.online} Online
-				</span>
-				{#if deviceStore.stats.offline > 0}
-					<span class="crawler-divider">•</span>
-					<span class="crawler-item offline">
-						{deviceStore.stats.offline} Offline
-					</span>
-				{/if}
-			</div>
-		</div>
+		<StatusCrawler />
 	{/if}
 
 	<!-- Main Content -->
@@ -197,41 +174,6 @@
 		width: 100%;
 		height: 100%;
 		min-height: calc(100vh - 12rem);
-	}
-
-	/* Status Crawler */
-	.status-crawler {
-		background: linear-gradient(135deg, rgb(59, 130, 246) 0%, rgb(37, 99, 235) 100%);
-		color: white;
-		padding: 0.75rem 1.5rem;
-		border-bottom: 2px solid rgb(29, 78, 216);
-	}
-
-	.crawler-content {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		font-size: 0.875rem;
-		font-weight: 500;
-	}
-
-	.crawler-item {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.crawler-item.offline {
-		color: rgb(254, 202, 202);
-	}
-
-	.crawler-icon {
-		width: 1rem;
-		height: 1rem;
-	}
-
-	.crawler-divider {
-		opacity: 0.5;
 	}
 
 	/* Loading/Error States */
@@ -428,15 +370,6 @@
 
 	/* Mobile responsiveness */
 	@media (max-width: 768px) {
-		.status-crawler {
-			padding: 0.5rem 1rem;
-		}
-
-		.crawler-content {
-			font-size: 0.75rem;
-			gap: 0.5rem;
-		}
-
 		.config-button {
 			bottom: 1.5rem;
 			right: 1.5rem;
