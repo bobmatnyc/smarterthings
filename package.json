@@ -1,6 +1,6 @@
 {
   "name": "@bobmatnyc/smarterthings",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "description": "Smarter Things - AI-powered LLM controller for SmartThings via Model Context Protocol (MCP)",
   "type": "module",
   "main": "./dist/index.js",
@@ -91,8 +91,10 @@
     "fastify": "^5.6.2",
     "lutron-leap": "^3.4.2",
     "mustache": "^4.2.0",
+    "node-cron": "^4.2.1",
     "openai": "^4.20.0",
     "plainjob": "^0.0.14",
+    "suncalc": "^1.9.0",
     "winston": "^3.15.0",
     "winston-daily-rotate-file": "^5.0.0",
     "zod": "^3.25.0"
@@ -103,6 +105,8 @@
     "@types/better-sqlite3": "^7.6.0",
     "@types/express": "^4.17.21",
     "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/suncalc": "^1.9.2",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^3.0.0",
