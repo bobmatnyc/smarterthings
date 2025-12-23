@@ -25,6 +25,7 @@
 
 import Database from 'better-sqlite3';
 import logger from '../utils/logger.js';
+import { logEvent } from '../utils/event-logger.js';
 import type {
   SmartHomeEvent,
   EventId,
@@ -221,6 +222,17 @@ export class EventStore {
         event.timestamp.getTime(), // Store as milliseconds
         event.metadata ? JSON.stringify(event.metadata) : null
       );
+
+      // Log event to file-based logger (daily rotation, 90-day retention)
+      logEvent({
+        type: event.type,
+        source: event.source,
+        deviceId: event.deviceId,
+        deviceName: event.deviceName,
+        value: event.value,
+        timestamp: event.timestamp,
+        metadata: event.metadata,
+      });
 
       logger.debug('[EventStore] Event saved', {
         eventId: event.id,
