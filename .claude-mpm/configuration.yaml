@@ -186,3 +186,6 @@ updates:
   check_frequency: daily
 use_ai_trackdown_tools: false
 verbose: false
+skills:
+  agent_referenced: []
+  user_defined: []

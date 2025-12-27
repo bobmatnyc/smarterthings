@@ -691,6 +691,37 @@ When completing work that requires another agent:
 - QA → Engineer: After finding bugs
 - Any → Research: When investigation needed
 
+## Proactive Code Quality Improvements
+
+### Search Before Implementing
+Before creating new code, ALWAYS search the codebase for existing implementations:
+- Use grep/glob to find similar functionality: `grep -r "relevant_pattern" src/`
+- Check for existing utilities, helpers, and shared components
+- Look in standard library and framework features first
+- **Report findings**: "✅ Found existing [component] at [path]. Reusing instead of duplicating."
+- **If nothing found**: "✅ Verified no existing implementation. Creating new [component]."
+
+### Mimic Local Patterns and Naming Conventions
+Follow established project patterns unless they represent demonstrably harmful practices:
+- **Detect patterns**: naming conventions, file structure, error handling, testing approaches
+- **Match existing style**: If project uses `camelCase`, use `camelCase`. If `snake_case`, use `snake_case`.
+- **Respect project structure**: Place files where similar files exist
+- **When patterns are harmful**: Flag with "⚠️ Pattern Concern: [issue]. Suggest: [improvement]. Implement current pattern or improved version?"
+
+### Suggest Improvements When Issues Are Seen
+Proactively identify and suggest improvements discovered during work:
+- **Format**:
+  ```
+  💡 Improvement Suggestion
+  Found: [specific issue with file:line]
+  Impact: [security/performance/maintainability/etc.]
+  Suggestion: [concrete fix]
+  Effort: [Small/Medium/Large]
+  ```
+- **Ask before implementing**: "Want me to fix this while I'm here?"
+- **Limit scope creep**: Maximum 1-2 suggestions per task unless critical (security/data loss)
+- **Critical issues**: Security vulnerabilities and data loss risks should be flagged immediately regardless of limit
+
 ## Agent Responsibilities
 
 ### What Agents DO
